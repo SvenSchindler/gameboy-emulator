@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gameboy Emu</title>
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+  </head>
+  <body>
+    <div class="main">
+      <div class="mainMenu">
+        <div>
+          <button onclick="romFileInput.click()" class="mainMenu">
+            Load ROM
+          </button>
+          <input type="file" id="romFileInput" style="display: none" />
+        </div>
+        <div>
+          <button id="muteButton" class="mainMenu">Mute</button>
+        </div>
+        <div>
+          <button id="debugButton" class="mainMenu">Debug</button>
+        </div>
+      </div>
+
+      <div class="gameboy">
+        <img src="img/gb.png" class="gameboy" />
+        <canvas id="screen" width="160" height="144" class="screen"></canvas>
+        <div class="instructions">
+          Keyboard mappings:
+          <div>n = start button, m = select button,</div>
+          <div>z = A button, x = B button</div>
+        </div>
+      </div>
+
+      <div class="debugWindow" id="debugInfos">
+        <div>
+          <canvas
+            id="background"
+            width="256"
+            height="256"
+            class="backgroundDebug"
+          ></canvas>
+
+          <!-- 384 tiles, let's have 16x24 tiles, each tile has 8x8 tiles -->
+          <canvas
+            id="tiles"
+            width="128"
+            height="192"
+            class="tilesDebug"
+          ></canvas>
+        </div>
+
+        <div>
+          <div class="debugHeader">Cartridge type:</div>
+          <div id="cartridgeType" class="debugOutput">...</div>
+        </div>
+
+        <div id="cpuDetails">
+          <div>
+            <div class="debugHeader">Registers:</div>
+            <div id="registers" class="debugOutput">...</div>
+          </div>
+
+          <div>
+            <div class="debugHeader">Flags:</div>
+            <div id="flags" class="debugOutput">...</div>
+          </div>
+
+          <div>
+            <div class="debugHeader">Stack info (last 2 items on stack):</div>
+            <div id="stackInfo" class="debugOutput">...</div>
+          </div>
+
+          <div>
+            <div class="debugHeader">
+              Next commands: (click to set breakpoint, press s => step, press b
+              => run until breakpoint hit), c = end debugging
+            </div>
+            <div id="nextCommands" class="debugOutput"></div>
+          </div>
+
+          <div>
+            <input type="text" id="breakpointInput" /><button
+              type="button"
+              id="breakpointButton"
+              onclick="setBreakpoint()"
+            >
+              Set breakpoint
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="bundle.js"></script>
+  </body>
+</html>
