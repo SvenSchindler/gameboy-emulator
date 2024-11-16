@@ -2,7 +2,7 @@
 
 After talking to a friend and colleague of mine about the Game Boy and emulators in general, I got very nostalgic and had the sudden urge to write a simple Game Boy emulator myself. I pretty much just wanted to find out how to do it. And since I hadn't touched TypeScript in forever and needed to up-skill a bit, I thought I'd just give it a try in TypeScript and see how it goes. (I actually didn't end up using most of TypeScript's language features but it was fun anyway)
 
-So here it is, a very basic TypeScript-based Game Boy emulator. It's mostly a learning project and not feature complete, so don't use it if you're serious about playing games. However, feel free to use it as a reference or to just explore games and do some debugging. 
+So here it is, a very basic TypeScript-based Game Boy emulator. It's mostly a learning project and not feature complete, so don't use it if you're serious about playing games. However, feel free to use it as a reference or to just explore games and do some debugging.
 
 <img src="./doc/images/game.png" alt="Game Boy" width="300">
 
@@ -30,11 +30,11 @@ To debug a game just load the rom of your choice and press `d` whenever you want
 
 The following core features have been implemented and have been running pretty stable in my tests.
 
-* CPU
-* DMA
-* Timer
-* Bus (mostly implemented)
-* ROM only + MBC1 cartridge support
+- CPU
+- DMA
+- Timer
+- Bus (mostly implemented)
+- ROM only + MBC1 cartridge support
 
 Besides these core features, I implemented a basic PPU and some basic audio support. I might rewrite the APU at some point. I tried to structure the code in a way that makes it simple to replace or extend major components such as PPU or APU.
 
@@ -42,8 +42,8 @@ Note that I haven't implemented most cartridge types, mainly because ROM only + 
 
 ## Main references
 
-* https://gbdev.io/pandocs/ (probably the best doc out there)
-* https://meganesulli.com/blog/game-boy-opcodes/ (Game Boy CPU instruction set, couldn't have done this project without it)
-* https://www.youtube.com/@lowleveldevel1712 (amazing youtube channel about low level programming in general, includes an amazing Game Boy series and is great to get started)
+- https://gbdev.io/pandocs/ (probably the best doc out there)
+- https://meganesulli.com/blog/game-boy-opcodes/ (Game Boy CPU instruction set, couldn't have done this project without it)
+- https://www.youtube.com/@lowleveldevel1712 (amazing youtube channel about low level programming in general, includes an amazing Game Boy series and is great to get started)
 
 I also linked a few more references in the code.
