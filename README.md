@@ -10,6 +10,10 @@ Speaking about debugging, I was mainly interested in how the Game Boy does thing
 
 <img src="./doc/images/window-debug-info.png" alt="Game Boy" width="500">
 
+## Try it
+
+Just head to https://svenschindler.github.io/gameboy-emulator/ to give it a try.
+
 ## How to build and run
 
 To build:
