@@ -1,0 +1,92 @@
+body {
+  font-family: "Courier New", Courier, monospace;
+  background-color: black;
+  overflow: visible;
+}
+
+.screen {
+  width: 347px;
+  height: 301px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  position: absolute;
+  left: 94px;
+  top: 98px;
+  z-index: 11;
+}
+
+div.gameboy {
+  position: relative;
+  z-index: 10;
+  float: left;
+}
+
+img.gameboy {
+  width: 538px;
+  position: relative;
+  z-index: 1;
+}
+
+.romFileInput {
+  padding-left: 0px;
+}
+
+.backgroundDebug {
+  width: 400px;
+  height: 400px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: top;
+}
+
+.tilesDebug {
+  width: 400px;
+  height: 600px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: top;
+}
+
+.debugWindow {
+  display: none;
+  float: left;
+  width: 820px;
+  padding-top: 10px;
+}
+
+.debugHeader {
+  color: white;
+}
+
+.debugOutput {
+  background-color: white;
+  font-family: "Courier New", Courier, monospace;
+  font-size: small;
+}
+
+button.mainMenu {
+  background-color: #ec1d3e;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold;
+  font-size: medium;
+  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  color: #f7d6aa;
+  border: none;
+  margin: 5px;
+}
+
+div.mainMenu {
+  padding: 5px;
+  padding-top: 25px;
+}
+
+div.main {
+  display: flex;
+}
+
+div.instructions {
+  color: #f7d6aa;
+  margin-left: 8px;
+}
