@@ -899,11 +899,23 @@ var BusImpl = /** @class */ (function () {
             else if (address === 0xff44) {
                 result = this.ppu.getLCDY();
             }
+            else if (address === 0xff45) {
+                result = this.ppu.getLYC();
+            }
+            else if (address === 0xff47) {
+                result = this.ppu.getBackgroundColorPalette();
+            }
             else if (address === 0xff48) {
                 result = this.ppu.getObjectColorPalette0();
             }
             else if (address === 0xff49) {
                 result = this.ppu.getObjectColorPalette1();
+            }
+            else if (address === 0xff4a) {
+                result = this.ppu.getWindowYPosition();
+            }
+            else if (address === 0xff4b) {
+                result = this.ppu.getWindowXPosition();
             }
             else if (address === 0xff4d) {
                 // Todo: speed switch?
@@ -6604,6 +6616,8 @@ var PPUImpl = /** @class */ (function () {
         //     [76,17,18,255],
         // ];
         // 0xFF47 background color palette
+        this.ff47 = 0x00;
+        // We'll keep a copy with the actual colors
         this.backgroundColorPalette = [];
         // 0xFF48 OBP0 object palette 0
         this.objectColorPalette0 = [];
@@ -6643,6 +6657,9 @@ var PPUImpl = /** @class */ (function () {
     PPUImpl.prototype.setLYC = function (value) {
         this.LYC = value & 0xff;
         this.checkLyLycInterrupt();
+    };
+    PPUImpl.prototype.getLYC = function () {
+        return this.LYC;
     };
     PPUImpl.prototype.tick = function () {
         // we don't do anything if the display is switched off
@@ -7017,8 +7034,14 @@ var PPUImpl = /** @class */ (function () {
     PPUImpl.prototype.setWindowYPosition = function (value) {
         this.WY = value;
     };
+    PPUImpl.prototype.getWindowYPosition = function () {
+        return this.WY;
+    };
     PPUImpl.prototype.setWindowXPosition = function (value) {
         this.WX = value;
+    };
+    PPUImpl.prototype.getWindowXPosition = function () {
+        return this.WX;
     };
     PPUImpl.prototype.setStatusRegister = function (value) {
         this.STAT = value & 0xff;
@@ -7054,11 +7077,15 @@ var PPUImpl = /** @class */ (function () {
         this.LCDC = value & 0xff;
     };
     PPUImpl.prototype.setBackgroundColorPalette = function (value) {
+        this.ff47 = value & 0xff;
         var colorId0 = value & 0x03;
         var colorId1 = (value >> 2) & 0x03;
         var colorId2 = (value >> 4) & 0x03;
         var colorId3 = (value >> 6) & 0x03;
         this.backgroundColorPalette = [colorId0, colorId1, colorId2, colorId3];
+    };
+    PPUImpl.prototype.getBackgroundColorPalette = function () {
+        return this.ff47;
     };
     PPUImpl.prototype.setObjectColorPalette0 = function (value) {
         this.ff48 = value;
