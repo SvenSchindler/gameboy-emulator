@@ -146,10 +146,18 @@ export class BusImpl implements Bus {
         result = this.ppu.getViewportX();
       } else if (address === 0xff44) {
         result = this.ppu.getLCDY();
+      } else if (address === 0xff45) {
+        result = this.ppu.getLYC();
+      } else if (address === 0xff47) {
+        result = this.ppu.getBackgroundColorPalette();
       } else if (address === 0xff48) {
         result = this.ppu.getObjectColorPalette0();
       } else if (address === 0xff49) {
         result = this.ppu.getObjectColorPalette1();
+      } else if (address === 0xff4a) {
+        result = this.ppu.getWindowYPosition();
+      } else if (address === 0xff4b) {
+        result = this.ppu.getWindowXPosition();
       } else if (address === 0xff4d) {
         // Todo: speed switch?
         result = 0xff;

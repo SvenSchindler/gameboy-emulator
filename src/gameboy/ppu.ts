@@ -7,12 +7,15 @@ export interface PPU {
   getViewportY(): number;
   getViewportX(): number;
   setWindowYPosition(value: number): void;
+  getWindowYPosition(): number;
   setWindowXPosition(value: number): void;
+  getWindowXPosition(): number;
   setStatusRegister(value: number): void;
   getStatusRegister(): number;
   getLCDControlerRegister(): number;
   setLCDControlerRegister(value: number): void;
   setBackgroundColorPalette(value: number): void;
+  getBackgroundColorPalette(): number;
   setObjectColorPalette0(value: number): void;
   setObjectColorPalette1(value: number): void;
   getObjectColorPalette0(): number;
@@ -22,6 +25,7 @@ export interface PPU {
   writeOAM(address: number, value: number): void;
   getLCDY(): number;
   setLYC(value: number): void;
+  getLYC(): number;
   tick(): void;
   logDebugInfo(): void;
   kill(): void;
@@ -96,6 +100,8 @@ export class PPUImpl implements PPU {
   // ];
 
   // 0xFF47 background color palette
+  private ff47 = 0x00;
+  // We'll keep a copy with the actual colors
   private backgroundColorPalette: number[] = [];
 
   // 0xFF48 OBP0 object palette 0
@@ -167,6 +173,10 @@ export class PPUImpl implements PPU {
   setLYC(value: number): void {
     this.LYC = value & 0xff;
     this.checkLyLycInterrupt();
+  }
+
+  getLYC(): number {
+    return this.LYC;
   }
 
   tick(): void {
@@ -672,8 +682,16 @@ export class PPUImpl implements PPU {
     this.WY = value;
   }
 
+  getWindowYPosition(): number {
+    return this.WY;
+  }
+
   setWindowXPosition(value: number): void {
     this.WX = value;
+  }
+
+  getWindowXPosition(): number {
+    return this.WX;
   }
 
   setStatusRegister(value: number): void {
@@ -716,11 +734,16 @@ export class PPUImpl implements PPU {
   }
 
   setBackgroundColorPalette(value: number): void {
+    this.ff47 = value & 0xff;
     const colorId0 = value & 0x03;
     const colorId1 = (value >> 2) & 0x03;
     const colorId2 = (value >> 4) & 0x03;
     const colorId3 = (value >> 6) & 0x03;
     this.backgroundColorPalette = [colorId0, colorId1, colorId2, colorId3];
+  }
+
+  getBackgroundColorPalette(): number {
+    return this.ff47;
   }
 
   setObjectColorPalette0(value: number): void {
