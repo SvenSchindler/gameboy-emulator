@@ -64,9 +64,7 @@ export class BusImpl implements Bus {
     }
     // Object attribute memory (OAM)
     else if (address >= 0xfe00 && address <= 0xfe9f) {
-      throw new Error(
-        "oam read for address " + toHexString(address) + " not implemented",
-      );
+      result = this.ppu.readOAM(address - 0xfe00);
     }
     // Not Usable	Nintendo says use of this area is prohibited.
     else if (address >= 0xfea0 && address <= 0xfeff) {

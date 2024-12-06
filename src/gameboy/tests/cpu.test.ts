@@ -46,6 +46,7 @@ describe("cpu", () => {
     writeVram: (address: number, value: number) => {},
     readVram: (address: number) => 0,
     writeOAM: (address: number, value: number) => {},
+    readOAM: (address: number) => 0,
     getLCDY: () => 0,
     setLYC: () => {},
     getLYC: () => 0,

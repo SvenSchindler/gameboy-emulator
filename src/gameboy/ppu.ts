@@ -23,6 +23,7 @@ export interface PPU {
   writeVram(address: number, value: number): void;
   readVram(address: number): number;
   writeOAM(address: number, value: number): void;
+  readOAM(address: number): number;
   getLCDY(): number;
   setLYC(value: number): void;
   getLYC(): number;
@@ -806,6 +807,15 @@ export class PPUImpl implements PPU {
       );
     }
     this.oam[address] = value & 0xff;
+  }
+
+  readOAM(address: number): number {
+    if (address > 159) {
+      throw new Error(
+        `attempt to read outside of oam, address: ${toHexString(address)}}`,
+      );
+    }
+    return this.oam[address];
   }
 
   kill() {
