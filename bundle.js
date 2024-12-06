@@ -792,7 +792,7 @@ var BusImpl = /** @class */ (function () {
         }
         // Object attribute memory (OAM)
         else if (address >= 0xfe00 && address <= 0xfe9f) {
-            throw new Error("oam read for address " + (0, utils_1.toHexString)(address) + " not implemented");
+            result = this.ppu.readOAM(address - 0xfe00);
         }
         // Not Usable	Nintendo says use of this area is prohibited.
         else if (address >= 0xfea0 && address <= 0xfeff) {
@@ -7133,6 +7133,12 @@ var PPUImpl = /** @class */ (function () {
             throw new Error("attempt to write outside of oam, address: ".concat((0, utils_1.toHexString)(address), ", value: ").concat((0, utils_1.toHexString)(value)));
         }
         this.oam[address] = value & 0xff;
+    };
+    PPUImpl.prototype.readOAM = function (address) {
+        if (address > 159) {
+            throw new Error("attempt to read outside of oam, address: ".concat((0, utils_1.toHexString)(address), "}"));
+        }
+        return this.oam[address];
     };
     PPUImpl.prototype.kill = function () {
         this.killed = true;
