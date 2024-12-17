@@ -32,7 +32,7 @@ export class BusImpl implements Bus {
     private ppu: PPU,
     private serial: Serial,
     private timer: Timer,
-    private startDma: (startAddress: number) => void,
+    private writeFF46: (startAddress: number) => void,
     private joypad: JoyPad,
     private apu: APU,
   ) {}
@@ -68,11 +68,7 @@ export class BusImpl implements Bus {
     }
     // Not Usable	Nintendo says use of this area is prohibited.
     else if (address >= 0xfea0 && address <= 0xfeff) {
-      throw new Error(
-        "not usable area read for address " +
-          toHexString(address) +
-          " not implemented",
-      );
+      throw new Error("not usable area read for address " + toHexString(address) + " not implemented");
     }
     // I/O Registers
     else if (address >= 0xff00 && address <= 0xff7f) {
@@ -135,34 +131,36 @@ export class BusImpl implements Bus {
         // ignore other audio reads
         result = 0x00;
       } else if (address === 0xff40) {
-        result = this.ppu.getLCDControlerRegister();
+        result = this.ppu.readFF40();
       } else if (address === 0xff41) {
-        result = this.ppu.getStatusRegister();
+        result = this.ppu.readFF41();
       } else if (address === 0xff42) {
-        result = this.ppu.getViewportY();
+        result = this.ppu.readFF42();
       } else if (address === 0xff43) {
-        result = this.ppu.getViewportX();
+        result = this.ppu.readFF43();
       } else if (address === 0xff44) {
-        result = this.ppu.getLCDY();
+        result = this.ppu.readFF44();
       } else if (address === 0xff45) {
-        result = this.ppu.getLYC();
+        result = this.ppu.readFF45();
       } else if (address === 0xff47) {
-        result = this.ppu.getBackgroundColorPalette();
+        result = this.ppu.readFF47();
       } else if (address === 0xff48) {
-        result = this.ppu.getObjectColorPalette0();
+        result = this.ppu.readFF48();
       } else if (address === 0xff49) {
-        result = this.ppu.getObjectColorPalette1();
+        result = this.ppu.readFF49();
       } else if (address === 0xff4a) {
-        result = this.ppu.getWindowYPosition();
+        result = this.ppu.readFF4A();
       } else if (address === 0xff4b) {
-        result = this.ppu.getWindowXPosition();
+        result = this.ppu.readFF4B();
       } else if (address === 0xff4d) {
         // Todo: speed switch?
+        // throw Error("ff4d speed switch not implemented");
         result = 0xff;
+      } else if (address === 0xff4f) {
+        // we don't support vram bank selects, that's a GBC thing
+        result = 0x0;
       } else {
-        throw new Error(
-          "io read for address " + toHexString(address) + " not implemented",
-        );
+        throw new Error("io read for address " + toHexString(address) + " not implemented");
       }
     }
     // High RAM (HRAM)
@@ -173,9 +171,7 @@ export class BusImpl implements Bus {
     else if (address >= 0xffff && address <= 0xffff) {
       result = this.interrupts.getIE();
     } else {
-      throw new Error(
-        "read outside of address space: " + toHexString(address) + "",
-      );
+      throw new Error("read outside of address space: " + toHexString(address) + "");
     }
 
     if (this.debugging && !skipDebugging) {
@@ -357,19 +353,19 @@ export class BusImpl implements Bus {
         return;
       }
       if (address === 0xff40) {
-        this.ppu.setLCDControlerRegister(value);
+        this.ppu.writeFF40(value);
         return;
       }
       if (address === 0xff41) {
-        this.ppu.setStatusRegister(value);
+        this.ppu.writeFF41(value);
         return;
       }
       if (address === 0xff42) {
-        this.ppu.setViewportY(value);
+        this.ppu.writeFF42(value);
         return;
       }
       if (address === 0xff43) {
-        this.ppu.setViewportX(value);
+        this.ppu.writeFF43(value);
         return;
       }
       if (address === 0xff44) {
@@ -377,44 +373,44 @@ export class BusImpl implements Bus {
         return;
       }
       if (address === 0xff45) {
-        this.ppu.setLYC(value);
+        this.ppu.writeFF45(value);
         return;
       }
       if (address === 0xff46) {
         // Todo - we should actually check if there's a DMA in progress.
-        this.startDma(value & 0xff);
+        this.writeFF46(value & 0xff);
         return;
       }
       if (address === 0xff47) {
-        this.ppu.setBackgroundColorPalette(value);
+        this.ppu.writeFF47(value);
         return;
       }
       if (address === 0xff48) {
-        this.ppu.setObjectColorPalette0(value);
+        this.ppu.writeFF48(value);
         return;
       }
       if (address === 0xff49) {
-        this.ppu.setObjectColorPalette1(value);
+        this.ppu.writeFF49(value);
         return;
       }
       if (address === 0xff4a) {
-        this.ppu.setWindowYPosition(value);
+        this.ppu.writeFF4A(value);
         return;
       }
       if (address === 0xff4b) {
-        this.ppu.setWindowXPosition(value);
+        this.ppu.writeFF4B(value);
+        return;
+      } else if (address === 0xff4f) {
+        // we don't support vram bank selects, that's a GBC thing
         return;
       }
       if (address === 0xff7f) {
-        // invalid write?
+        // Tetris writes to this memory location, we just ignore it
+        // https://www.reddit.com/r/EmuDev/comments/5nixai/gb_tetris_writing_to_unused_memory/
         return;
       }
       throw new Error(
-        "io write of value " +
-          toHexString(value) +
-          " to address " +
-          toHexString(address) +
-          " not implemented",
+        "io write of value " + toHexString(value) + " to address " + toHexString(address) + " not implemented",
       );
     }
     // High RAM (HRAM)
@@ -428,9 +424,7 @@ export class BusImpl implements Bus {
       return;
     }
 
-    throw new Error(
-      "write outside of address space: " + toHexString(address) + "",
-    );
+    throw new Error("write outside of address space: " + toHexString(address) + "");
   }
 
   enableDebugLog(): void {

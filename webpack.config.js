@@ -30,11 +30,7 @@ module.exports = {
   },
   plugins: [
     new CopyWebpackPlugin({
-      patterns: [
-        { from: "index.html" },
-        { from: "styles.css" },
-        { from: "img/*", to: "img/[name][ext]" },
-      ],
+      patterns: [{ from: "index.html" }, { from: "styles.css" }, { from: "img/*", to: "img/[name][ext]" }],
     }),
   ],
 };

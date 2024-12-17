@@ -32,48 +32,21 @@ const loadRom = (i: HTMLInputElement) => () => {
 
 // Overall layer wrapping all cpu specific outputs.
 // Hidden while running.
-const cpuDetails = assertExists(
-  document.getElementById("cpuDetails"),
-  "CPU details layer doesn't exist",
-);
+const cpuDetails = assertExists(document.getElementById("cpuDetails"), "CPU details layer doesn't exist");
 
-const commandOutput = assertExists(
-  document.getElementById("nextCommands"),
-  "Command output doesn't exist",
-);
-const registersOutput = assertExists(
-  document.getElementById("registers"),
-  "Registers output doesn't exist",
-);
-const flagsOutput = assertExists(
-  document.getElementById("flags"),
-  "Flags output doesn't exist",
-);
+const commandOutput = assertExists(document.getElementById("nextCommands"), "Command output doesn't exist");
+const registersOutput = assertExists(document.getElementById("registers"), "Registers output doesn't exist");
+const flagsOutput = assertExists(document.getElementById("flags"), "Flags output doesn't exist");
 const cartrigeTypeOutput = assertExists(
   document.getElementById("cartridgeType"),
   "Cartridge type output doesn't exist",
 );
-const stackInfoOutput = assertExists(
-  document.getElementById("stackInfo"),
-  "Stack info output doesn't exist",
-);
-const debugInfos = assertExists(
-  document.getElementById("debugInfos"),
-  "Debug infos view doesn't exist",
-);
+const stackInfoOutput = assertExists(document.getElementById("stackInfo"), "Stack info output doesn't exist");
+const debugInfos = assertExists(document.getElementById("debugInfos"), "Debug infos view doesn't exist");
 
-const romFileInput = assertExists(
-  document.getElementById("romFileInput"),
-  "Rom file input doesnt exist",
-);
-const muteButton = assertExists(
-  document.getElementById("muteButton"),
-  "Mute button doesnt exists",
-);
-const debugButton = assertExists(
-  document.getElementById("debugButton"),
-  "Debug button doesnt exists",
-);
+const romFileInput = assertExists(document.getElementById("romFileInput"), "Rom file input doesnt exist");
+const muteButton = assertExists(document.getElementById("muteButton"), "Mute button doesnt exists");
+const debugButton = assertExists(document.getElementById("debugButton"), "Debug button doesnt exists");
 
 if (romFileInput) {
   romFileInput.onchange = loadRom(romFileInput as HTMLInputElement);
@@ -92,9 +65,7 @@ let condition = () => true;
 };
 
 (window as any).setBreakpoint = () => {
-  const breakpointInput = document.getElementById(
-    "breakpointInput",
-  ) as HTMLInputElement;
+  const breakpointInput = document.getElementById("breakpointInput") as HTMLInputElement;
   breakpoint = parseInt(breakpointInput?.value ?? "-1");
   updateDebugWindows();
 };
@@ -124,21 +95,18 @@ let updateDebugWindows = () => {
 
   let registers = gameboy?.getRegisterInfo();
   if (registers) {
-    registersOutput.innerHTML = registers
-      .map((c) => `<div>${c[0]}: ${c[1]}</div>`)
-      .join("");
+    registersOutput.innerHTML = registers.map((c) => `<div>${c[0]}: ${c[1]}</div>`).join("");
   }
 
   let flags = gameboy?.getFlagInfo();
   if (flags) {
-    flagsOutput.innerHTML = flags
-      .map((c) => `<div>${c[0]}: ${c[1]}</div>`)
-      .join("");
+    flagsOutput.innerHTML = flags.map((c) => `<div>${c[0]}: ${c[1]}</div>`).join("");
   }
 
   const stack = gameboy?.getStackInfo();
   if (stack) {
     stackInfoOutput.innerHTML = stack
+      .filter((e) => e !== undefined)
       .map((e) => `<div>${toHexString(e)}</div>`)
       .join("");
   }

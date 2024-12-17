@@ -3,7 +3,7 @@ import { PPU } from "./ppu";
 
 export interface DMA {
   tick(): void;
-  startDma(address: number): void;
+  writeFF46(address: number): void;
   isTransferring(): boolean;
 }
 
@@ -22,10 +22,7 @@ export class DMAImpl implements DMA {
       return;
     }
 
-    this.ppu.writeOAM(
-      this.bytesTransferred,
-      this.bus!.read(this.startAddress * 0x100 + this.bytesTransferred),
-    );
+    this.ppu.writeOAM(this.bytesTransferred, this.bus!.read(this.startAddress * 0x100 + this.bytesTransferred));
 
     this.bytesTransferred++;
     if (this.bytesTransferred >= 0xa0) {
@@ -33,7 +30,7 @@ export class DMAImpl implements DMA {
     }
   }
 
-  startDma(address: number): void {
+  writeFF46(address: number): void {
     this.bytesTransferred = 0;
     this.active = true;
     this.startAddress = address;

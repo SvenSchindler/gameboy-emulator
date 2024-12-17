@@ -16,37 +16,28 @@ export class RamImpl implements Ram {
 
   readWorkingRam(address: number): number {
     if (address > 8191) {
-      throw new Error(
-        "cannot read from working ram outside of address space" + address,
-      );
+      throw new Error("cannot read from working ram outside of address space" + address);
     }
     return this.workingRam[address] ?? 0;
   }
 
   writeWorkingRam(address: number, value: number) {
     if (address > 8191) {
-      throw new Error(
-        "cannot write to working ram outside of address space" + address,
-      );
+      throw new Error("cannot write to working ram outside of address space" + address);
     }
     this.workingRam[address] = value & 0xff;
   }
 
   readHighRam(address: number): number {
     if (address > 126) {
-      throw new Error(
-        "cannot read from high ram outside of address space" + address,
-      );
+      throw new Error("cannot read from high ram outside of address space" + address);
     }
     return this.highRam[address];
   }
 
   writeHighRam(address: number, value: number): void {
     if (address > 126) {
-      throw new Error(
-        "cannot write to high ram outside of address space: " +
-          toHexString(address),
-      );
+      throw new Error("cannot write to high ram outside of address space: " + toHexString(address));
     }
     this.highRam[address] = value;
   }

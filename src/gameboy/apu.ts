@@ -227,8 +227,7 @@ export class APUImpl implements APU {
       const time = this.audioContext.currentTime;
       const totalTimePassed = time - this.audioStartTime;
       const samplesToSubmit =
-        (totalTimePassed + this.bufferAhead) * this.audioContext.sampleRate -
-        this.totalNumberOfSamplesSubmitted;
+        (totalTimePassed + this.bufferAhead) * this.audioContext.sampleRate - this.totalNumberOfSamplesSubmitted;
 
       if (samplesToSubmit > 0) {
         const buffer = this.audioContext.createBuffer(
@@ -239,16 +238,11 @@ export class APUImpl implements APU {
         const nowBuffering = buffer.getChannelData(0);
 
         // clock the noise channel based on the buffer length
-        const lfsrClockFrequencey =
-          262144 / (this.channel4ClockDivider * (1 << this.channel4ClockShift)); // 1048576 / 4 = 262144
-        const samplesAfterWeNeedToClock = Math.round(
-          this.audioContext.sampleRate / lfsrClockFrequencey,
-        ); // Todo: for very fast lfsr clocks we need to sample multiple times per sample
+        const lfsrClockFrequencey = 262144 / (this.channel4ClockDivider * (1 << this.channel4ClockShift)); // 1048576 / 4 = 262144
+        const samplesAfterWeNeedToClock = Math.round(this.audioContext.sampleRate / lfsrClockFrequencey); // Todo: for very fast lfsr clocks we need to sample multiple times per sample
         let numberOfClocksPerSample = 1;
         if (samplesAfterWeNeedToClock === 0) {
-          numberOfClocksPerSample = Math.round(
-            lfsrClockFrequencey / this.audioContext.sampleRate,
-          );
+          numberOfClocksPerSample = Math.round(lfsrClockFrequencey / this.audioContext.sampleRate);
         }
 
         for (let i = 0; i < buffer.length; i++) {
@@ -258,22 +252,16 @@ export class APUImpl implements APU {
           if (this.channel1Samples[this.channel1SampleIndex]) {
             this.mainOutSamples[this.mainOutSampleIndex] =
               this.mainOutSamples[this.mainOutSampleIndex] +
-              this.channel1Samples[this.channel1SampleIndex] *
-                (this.channel1Volume / 15 / 4) *
-                this.envelopes[0];
+              this.channel1Samples[this.channel1SampleIndex] * (this.channel1Volume / 15 / 4) * this.envelopes[0];
           }
-          this.channel1SampleIndex =
-            (this.channel1SampleIndex + 1) % this.channel1Samples.length;
+          this.channel1SampleIndex = (this.channel1SampleIndex + 1) % this.channel1Samples.length;
           // channel 2
           if (this.channel2Samples[this.channel2SampleIndex]) {
             this.mainOutSamples[this.mainOutSampleIndex] =
               this.mainOutSamples[this.mainOutSampleIndex] +
-              this.channel2Samples[this.channel2SampleIndex] *
-                (this.channel2Volume / 15 / 4) *
-                this.envelopes[1];
+              this.channel2Samples[this.channel2SampleIndex] * (this.channel2Volume / 15 / 4) * this.envelopes[1];
           }
-          this.channel2SampleIndex =
-            (this.channel2SampleIndex + 1) % this.channel2Samples.length;
+          this.channel2SampleIndex = (this.channel2SampleIndex + 1) % this.channel2Samples.length;
           // channel 3
           if (this.channel3IsOn) {
             let nextSample = this.channel3Samples[this.channel3SampleIndex];
@@ -281,15 +269,13 @@ export class APUImpl implements APU {
               this.mainOutSamples[this.mainOutSampleIndex] +
               nextSample * (this.channel3Volume / 4) * 0.6 * this.envelopes[2];
           }
-          this.channel3SampleIndex =
-            (this.channel3SampleIndex + 1) % this.channel3Samples.length;
+          this.channel3SampleIndex = (this.channel3SampleIndex + 1) % this.channel3Samples.length;
           // channel 4
           if (this.channel4IsOn) {
             // one lfsr clock spans multiple samples
             if (samplesAfterWeNeedToClock > 0) {
               this.noiseChannelClockIncreaseCounter =
-                (this.noiseChannelClockIncreaseCounter + 1) %
-                samplesAfterWeNeedToClock;
+                (this.noiseChannelClockIncreaseCounter + 1) % samplesAfterWeNeedToClock;
               if (this.noiseChannelClockIncreaseCounter === 0) {
                 this.getNextLFSRSample(); // this will clock it.
               }
@@ -307,10 +293,8 @@ export class APUImpl implements APU {
           }
 
           // copy main samples into buffer
-          nowBuffering[i] =
-            this.mainOutSamples[this.mainOutSampleIndex] * this.volume;
-          this.mainOutSampleIndex =
-            (this.mainOutSampleIndex + 1) % this.mainOutSamples.length;
+          nowBuffering[i] = this.mainOutSamples[this.mainOutSampleIndex] * this.volume;
+          this.mainOutSampleIndex = (this.mainOutSampleIndex + 1) % this.mainOutSamples.length;
 
           // not really needed
           for (let i = 0; i < this.envelopes.length; i++) {
@@ -324,9 +308,7 @@ export class APUImpl implements APU {
         source.connect(this.audioContext.destination);
 
         // one blob should be played for 1/64 of a second
-        const nextTime =
-          this.audioStartTime +
-          this.totalNumberOfSamplesSubmitted / this.audioContext.sampleRate;
+        const nextTime = this.audioStartTime + this.totalNumberOfSamplesSubmitted / this.audioContext.sampleRate;
         source.start(nextTime);
         this.totalNumberOfSamplesSubmitted += samplesToSubmit;
       }
@@ -357,8 +339,7 @@ export class APUImpl implements APU {
       return;
     }
     if (this.channel1EnvelopModulo === 0) {
-      const envelopeDirection: EnvelopeDirection =
-        ((this.NR12 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+      const envelopeDirection: EnvelopeDirection = ((this.NR12 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
       if (envelopeDirection === "INCREASE" && this.channel1Volume < 15) {
         this.channel1Volume++;
       } else if (envelopeDirection === "DECREASE" && this.channel1Volume > 0) {
@@ -376,8 +357,7 @@ export class APUImpl implements APU {
       return;
     }
     if (this.channel2EnvelopModulo === 0) {
-      const envelopeDirection: EnvelopeDirection =
-        ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+      const envelopeDirection: EnvelopeDirection = ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
       if (envelopeDirection === "INCREASE" && this.channel2Volume < 15) {
         this.channel2Volume++;
       } else if (envelopeDirection === "DECREASE" && this.channel2Volume > 0) {
@@ -395,8 +375,7 @@ export class APUImpl implements APU {
       return;
     }
     if (this.channel4EnvelopModulo === 0) {
-      const envelopeDirection: EnvelopeDirection =
-        ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+      const envelopeDirection: EnvelopeDirection = ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
       if (envelopeDirection === "INCREASE" && this.channel4Volume < 15) {
         this.channel4Volume++;
       } else if (envelopeDirection === "DECREASE" && this.channel4Volume > 0) {
@@ -477,8 +456,7 @@ export class APUImpl implements APU {
 
     if (this.sweepModulo === 0) {
       const step = this.NR10 & 0b111;
-      const direction: SweepDirection =
-        ((this.NR10 >> 3) & 0x1) === 0x0 ? "UP" : "DOWN";
+      const direction: SweepDirection = ((this.NR10 >> 3) & 0x1) === 0x0 ? "UP" : "DOWN";
 
       let period = ((this.NR14 & 0b111) << 8) | (this.NR13 & 0xff);
       if (direction === "UP") {
@@ -744,8 +722,7 @@ export class APUImpl implements APU {
   writeChannel2VolumeAndEnvelope(value: number) {
     this.NR22 = value & 0xff;
     const sweepPace = this.NR22 & 0b111;
-    const envelopeDirection: EnvelopeDirection =
-      ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+    const envelopeDirection: EnvelopeDirection = ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
     // Other fields (not used in this function):
     // not updated by envelope
     // const initialVolume = (this.NR22 >> 4) & 0b1111;
@@ -858,11 +835,9 @@ export class APUImpl implements APU {
     const nibble = this.channel3WaveSampleIndex % 2 === 0 ? "HIGH" : "LOW";
     let sample = 0;
     if (nibble === "HIGH") {
-      sample =
-        channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] >> 4;
+      sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] >> 4;
     } else {
-      sample =
-        channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] & 0xf;
+      sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] & 0xf;
     }
     sample = (sample / 15) * 2 - 1; // move it so that it's between -1 and 1
     this.channel3WaveSampleIndex = (this.channel3WaveSampleIndex + 1) % 32; // 32 samples in the buffer
@@ -877,8 +852,7 @@ export class APUImpl implements APU {
   writeChannel4VolumeAndEnvelope(value: number) {
     this.NR42 = value & 0xff;
     const sweepPace = this.NR42 & 0b111;
-    const envelopeDirection: EnvelopeDirection =
-      ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+    const envelopeDirection: EnvelopeDirection = ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
     // not updated by envelope
     const initialVolume = (this.NR42 >> 4) & 0b1111;
   }
@@ -921,9 +895,7 @@ export class APUImpl implements APU {
   getNextLFSRSample(): number {
     let result = this.channel4LfsrState & 1;
     let oneBeforeLast = (this.channel4LfsrState >> 1) & 1;
-    this.channel4LfsrState =
-      (this.channel4LfsrState >> 1) |
-      ((result ^ oneBeforeLast) << (this.channel4LfsrWidth - 1));
+    this.channel4LfsrState = (this.channel4LfsrState >> 1) | ((result ^ oneBeforeLast) << (this.channel4LfsrWidth - 1));
     return result;
   }
 

@@ -1,9 +1,4 @@
-import {
-  signedFrom8Bits,
-  signedFrom11Bits,
-  toBigEndian,
-  toLittleEndian,
-} from "../utils";
+import { signedFrom8Bits, signedFrom11Bits, toBigEndian, toLittleEndian } from "../utils";
 
 describe("utils", () => {
   it("converts to little endian", () => {

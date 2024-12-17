@@ -31,19 +31,12 @@ export class Gameboy {
     const screenCanvas = document.getElementById("screen") as HTMLCanvasElement;
 
     // The full background layer for debugging.
-    const backgroundCanvas = document.getElementById(
-      "background",
-    ) as HTMLCanvasElement;
+    const backgroundCanvas = document.getElementById("background") as HTMLCanvasElement;
 
     // Tile canvas, just containing all background tiles for debugging.
     const tileCanvas = document.getElementById("tiles") as HTMLCanvasElement;
 
-    this.ppu = new PPUImpl(
-      screenCanvas,
-      tileCanvas,
-      backgroundCanvas,
-      interrupts,
-    );
+    this.ppu = new PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts);
     const serial = new SerialImpl();
     const timer = new TimerImpl(interrupts);
     this.joypad = new JoyPadImpl(interrupts);
@@ -55,7 +48,7 @@ export class Gameboy {
       this.ppu,
       serial,
       timer,
-      (startAddress) => dma.startDma(startAddress),
+      (startAddress) => dma.writeFF46(startAddress),
       this.joypad,
       this.apu,
     );
@@ -78,11 +71,9 @@ export class Gameboy {
   }
 
   kill() {
-    // This will stop cpu and the ppu debug refresh
-    // and can't be resumed. After calling this,
+    // This will stop cpu and can't be resumed. After calling this,
     // you'll need to create a new gameboy instance.
     this.cpu?.kill();
-    this.ppu?.kill();
   }
 
   mute() {
@@ -140,6 +131,9 @@ export class Gameboy {
     0x01: "MBC1",
     0x02: "MBC1+RAM",
     0x03: "MBC1+RAM+BATTERY",
+    0x05: "MBC2",
+    0x06: "MBC2+BATTERY",
+    0x1b: "MBC5+RAM+BATTERY",
   };
 
   getCartridgeType() {
@@ -157,15 +151,11 @@ export class Gameboy {
 
     const cartrigeType = rom[0x147];
     if (this.idToCartridgeType[cartrigeType] === undefined) {
-      throw new Error(
-        "Sorry, unsupported cartriged type: " + toHexString(cartrigeType),
-      );
+      throw new Error("Sorry, unsupported cartriged type: " + toHexString(cartrigeType));
     }
     this.cartridgeType = this.idToCartridgeType[cartrigeType];
 
-    console.log(
-      `title: ${title}\tcartridg type: ${toHexString(cartrigeType)}, rom size: ${rom.length}`,
-    );
+    console.log(`title: ${title}\tcartridg type: ${toHexString(cartrigeType)}, rom size: ${rom.length}`);
   }
 
   pressStart() {

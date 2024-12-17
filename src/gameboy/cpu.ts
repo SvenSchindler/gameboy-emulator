@@ -5,12 +5,7 @@ import { DMA } from "./dma";
 import { Interrupts } from "./interrupts";
 import { PPU } from "./ppu";
 import { Timer } from "./timer";
-import {
-  signedFrom8Bits,
-  toBigEndian,
-  toHexString,
-  toLittleEndian,
-} from "./utils";
+import { signedFrom8Bits, toBigEndian, toHexString, toLittleEndian } from "./utils";
 
 type Instruction = {
   name: string;
@@ -119,7 +114,8 @@ export class CPU {
         // ms hack to compensate for set timeout, we don't want to sound to fluctuate too much which is why we dont' want this value to change too often
         // we should actually measure this
       },
-      this.timePerFrameMs - (timeTakenMs + 3),
+      // Todo(put the timing back in)
+      this.timePerFrameMs - (timeTakenMs + 0),
     );
   }
 
@@ -138,9 +134,7 @@ export class CPU {
         console.log(`${this.instructionCount}:----------------`);
         this.printRegisters();
         this.printFlags();
-        console.log(
-          `${toHexString(pc, 16)}\t${toHexString(instructionNo)} (${nextFewBytesString})`,
-        );
+        console.log(`${toHexString(pc, 16)}\t${toHexString(instructionNo)} (${nextFewBytesString})`);
 
         this.printLastOperations();
 
@@ -149,17 +143,12 @@ export class CPU {
           .sort()
           .forEach((inst, i) => console.log(i + ": " + inst));
 
-        throw Error(
-          `Unknown instruction encountered: ${toHexString(instructionNo)}`,
-        );
+        throw Error(`Unknown instruction encountered: ${toHexString(instructionNo)}`);
       }
 
       try {
         if (this.debugging) {
-          console.log(
-            `%cDebugger - executing instruction ${instruction.name}`,
-            "background: #000000; color: #ffffff",
-          );
+          console.log(`%cDebugger - executing instruction ${instruction.name}`, "background: #000000; color: #ffffff");
           console.log("Flags and registers before:");
           this.printRegisters();
           this.printFlags();
@@ -211,79 +200,54 @@ export class CPU {
     // handle interrupts
     if (this.interrupts.isInterruptsEnabled()) {
       // VBLANK 0x40
-      if (
-        this.interrupts.getInterruptFlag() & 0x1 &&
-        this.interrupts.getIE() & 0x1
-      ) {
+      if (this.interrupts.getInterruptFlag() & 0x1 && this.interrupts.getIE() & 0x1) {
         this.lastXOperations.push("vblank interrupt");
         if (this.lastXOperations.length > this.maxLastOperations) {
           this.lastXOperations.shift();
         }
         // vblank interrupt
         this.callInterrupt(0x40);
-        this.interrupts.setInterruptFlag(
-          this.interrupts.getInterruptFlag() & 0b11111110,
-        );
+        this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 0b11111110);
       }
 
       // LCD / stat 0x48
-      else if (
-        this.interrupts.getInterruptFlag() & 0b10 &&
-        this.interrupts.getIE() & 0b10
-      ) {
+      else if (this.interrupts.getInterruptFlag() & 0b10 && this.interrupts.getIE() & 0b10) {
         this.lastXOperations.push("lcd stat interrupt");
         if (this.lastXOperations.length > this.maxLastOperations) {
           this.lastXOperations.shift();
         }
         this.callInterrupt(0x48);
-        this.interrupts.setInterruptFlag(
-          this.interrupts.getInterruptFlag() & 0b11111101,
-        );
+        this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 0b11111101);
       }
 
       // Timer / stat 0x50
-      else if (
-        this.interrupts.getInterruptFlag() & 0b100 &&
-        this.interrupts.getIE() & 0b100
-      ) {
+      else if (this.interrupts.getInterruptFlag() & 0b100 && this.interrupts.getIE() & 0b100) {
         this.lastXOperations.push("timer stat interrupt");
         if (this.lastXOperations.length > this.maxLastOperations) {
           this.lastXOperations.shift();
         }
         this.callInterrupt(0x50);
-        this.interrupts.setInterruptFlag(
-          this.interrupts.getInterruptFlag() & 0b11111011,
-        );
+        this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 0b11111011);
       }
 
       // Serial 0x58 -- this shouldnt ever get invoked in our impl
-      else if (
-        this.interrupts.getInterruptFlag() & 0b1000 &&
-        this.interrupts.getIE() & 0b1000
-      ) {
+      else if (this.interrupts.getInterruptFlag() & 0b1000 && this.interrupts.getIE() & 0b1000) {
         this.lastXOperations.push("serial interrupt");
         if (this.lastXOperations.length > this.maxLastOperations) {
           this.lastXOperations.shift();
         }
         this.callInterrupt(0x58);
-        this.interrupts.setInterruptFlag(
-          this.interrupts.getInterruptFlag() & 0b11110111,
-        );
+        this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 0b11110111);
       }
 
       // Joypad 0x60
-      else if (
-        this.interrupts.getInterruptFlag() & 0b10000 &&
-        this.interrupts.getIE() & 0b10000
-      ) {
+      else if (this.interrupts.getInterruptFlag() & 0b10000 && this.interrupts.getIE() & 0b10000) {
         this.lastXOperations.push("joypad interrupt");
         if (this.lastXOperations.length > this.maxLastOperations) {
           this.lastXOperations.shift();
         }
         this.callInterrupt(0x60);
-        this.interrupts.setInterruptFlag(
-          this.interrupts.getInterruptFlag() & 0b11101111,
-        );
+        this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 0b11101111);
       }
     }
 
@@ -299,10 +263,7 @@ export class CPU {
       console.log(
         `Debugger - next bytes: [${toHexString(this.bus.read(this.getPC(), true))}, ${toHexString(this.bus.read(this.getPC() + 1, true))}, ${toHexString(this.bus.read(this.getPC() + 2, true))}]`,
       );
-      console.log(
-        "%c-------------------------------------------",
-        "color: #ff0000",
-      );
+      console.log("%c-------------------------------------------", "color: #ff0000");
     }
 
     this.instructionCount++;
@@ -354,19 +315,10 @@ export class CPU {
         break;
       }
 
-      const param1 =
-        instruction.size > 1
-          ? " " + toHexString(this.bus.read(this.getPC() + pcOffset + 1, true))
-          : "";
-      const param2 =
-        instruction.size > 2
-          ? " " + toHexString(this.bus.read(this.getPC() + pcOffset + 2, true))
-          : "";
+      const param1 = instruction.size > 1 ? " " + toHexString(this.bus.read(this.getPC() + pcOffset + 1, true)) : "";
+      const param2 = instruction.size > 2 ? " " + toHexString(this.bus.read(this.getPC() + pcOffset + 2, true)) : "";
 
-      commands.push([
-        this.getPC() + pcOffset,
-        `${instruction.name} (${toHexString(instructionNo)}${param1}${param2})`,
-      ]);
+      commands.push([this.getPC() + pcOffset, `${instruction.name} (${toHexString(instructionNo)}${param1}${param2})`]);
 
       pcOffset += instruction.size;
     }
@@ -380,7 +332,7 @@ export class CPU {
     console.log("-----");
   }
 
-  // only returns the top two elemtn
+  // only returns the top two element
   getStackInfo(): number[] {
     let sp = this.getSP();
     const result: number[] = [];
@@ -914,25 +866,16 @@ export class CPU {
     let u = 0;
     let cFlag = 0;
 
-    if (
-      this.getFlagH() === 1 ||
-      (this.getFlagN() === 0 && (this.getRegisterA() & 0xf) > 9)
-    ) {
+    if (this.getFlagH() === 1 || (this.getFlagN() === 0 && (this.getRegisterA() & 0xf) > 9)) {
       u = 6;
     }
 
-    if (
-      this.getFlagC() === 1 ||
-      (this.getFlagN() === 0 && this.getRegisterA() > 0x99)
-    ) {
+    if (this.getFlagC() === 1 || (this.getFlagN() === 0 && this.getRegisterA() > 0x99)) {
       u |= 0x60;
       cFlag = 1;
     }
 
-    const result =
-      this.getFlagN() === 0
-        ? (this.getRegisterA() + u) & 0xff
-        : (this.getRegisterA() - u) & 0xff;
+    const result = this.getFlagN() === 0 ? (this.getRegisterA() + u) & 0xff : (this.getRegisterA() - u) & 0xff;
     this.setRegisterA(result);
     const zFlag = result === 0 ? 1 : 0;
     this.setFlagZ(zFlag);
@@ -2797,10 +2740,7 @@ export class CPU {
       [() => this.getRegisterE(), (value: number) => this.setRegisterE(value)],
       [() => this.getRegisterH(), (value: number) => this.setRegisterH(value)],
       [() => this.getRegisterL(), (value: number) => this.setRegisterL(value)],
-      [
-        () => this.bus.read(this.getRegisterHL()),
-        (value: number) => this.bus.write(this.getRegisterHL(), value),
-      ],
+      [() => this.bus.read(this.getRegisterHL()), (value: number) => this.bus.write(this.getRegisterHL(), value)],
       [() => this.getRegisterA(), (value: number) => this.setRegisterA(value)],
     ];
 
@@ -2820,9 +2760,7 @@ export class CPU {
       this.tick(cycles);
 
       // special ops with 12 ticks
-      const twelveTickOperations = [
-        0x46, 0x56, 0x66, 0x76, 0x4e, 0x5e, 0x6e, 0x7e,
-      ];
+      const twelveTickOperations = [0x46, 0x56, 0x66, 0x76, 0x4e, 0x5e, 0x6e, 0x7e];
 
       // extra cycles for (HL) operations
       if (
@@ -5108,9 +5046,7 @@ export class CPU {
     const sp = toHexString(this.getRegisterSP(), 16);
     const pc = toHexString(this.getRegisterPC(), 16);
 
-    console.log(
-      `Registers: AF: ${af}\tBC: ${bc}\tDE: ${de}\tHL: ${hl}\tSP: ${sp}\tPC: ${pc}`,
-    );
+    console.log(`Registers: AF: ${af}\tBC: ${bc}\tDE: ${de}\tHL: ${hl}\tSP: ${sp}\tPC: ${pc}`);
   }
 
   printFlags() {

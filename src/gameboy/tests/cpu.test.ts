@@ -25,39 +25,38 @@ describe("cpu", () => {
   };
 
   const fakePPU: PPU = {
-    setViewportY: (value: number) => {},
-    setViewportX: (value: number) => {},
-    getViewportY: () => 0,
-    getViewportX: () => 0,
-    setWindowYPosition: (value: number) => {},
-    getWindowYPosition: () => 0,
-    setWindowXPosition: (value: number) => {},
-    getWindowXPosition: () => 0,
-    setStatusRegister: (value: number) => {},
-    getStatusRegister: () => 0,
-    getLCDControlerRegister: () => 0,
-    setLCDControlerRegister: (value: number) => {},
-    setBackgroundColorPalette: (value: number) => {},
-    getBackgroundColorPalette: () => 0,
-    setObjectColorPalette0: (value: number) => {},
-    setObjectColorPalette1: (value: number) => {},
-    getObjectColorPalette0: () => 0,
-    getObjectColorPalette1: () => 0,
+    writeFF42: (value: number) => {},
+    writeFF43: (value: number) => {},
+    readFF42: () => 0,
+    readFF43: () => 0,
+    writeFF4A: (value: number) => {},
+    readFF4A: () => 0,
+    writeFF4B: (value: number) => {},
+    readFF4B: () => 0,
+    writeFF41: (value: number) => {},
+    readFF41: () => 0,
+    readFF40: () => 0,
+    writeFF40: (value: number) => {},
+    writeFF47: (value: number) => {},
+    readFF47: () => 0,
+    writeFF48: (value: number) => {},
+    writeFF49: (value: number) => {},
+    readFF48: () => 0,
+    readFF49: () => 0,
     writeVram: (address: number, value: number) => {},
     readVram: (address: number) => 0,
     writeOAM: (address: number, value: number) => {},
     readOAM: (address: number) => 0,
-    getLCDY: () => 0,
-    setLYC: () => {},
-    getLYC: () => 0,
+    readFF44: () => 0,
+    writeFF45: () => {},
+    readFF45: () => 0,
     tick: () => {},
     logDebugInfo: () => {},
-    kill: () => {},
   };
 
   const fakeDma: DMA = {
     tick: () => {},
-    startDma: () => {},
+    writeFF46: () => {},
     isTransferring: () => false,
   };
 
@@ -125,14 +124,7 @@ describe("cpu", () => {
   const interrupts = new InterruptsImpl();
 
   it("should update the correct flags", () => {
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     cpu.setFlags(0x00);
     expect(cpu.getFlags()).toBe(0);
     cpu.setFlagZ(1);
@@ -155,14 +147,7 @@ describe("cpu", () => {
   });
 
   it("should set the correct registers", () => {
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     cpu.setRegisterAF(0xab_cd);
     expect(cpu.getRegisterAF()).toBe(0xab_cd);
     expect(cpu.getRegisterA()).toBe(0xab);
@@ -178,28 +163,14 @@ describe("cpu", () => {
   });
 
   it("should store values in little endian", () => {
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     cpu.setRegisterAF(0xab_cd);
     const rawRegisters = cpu.getRawRegistersForTesting();
     expect(rawRegisters.AF).toBe(0xcd_ab);
   });
 
   it("should increase the program counter", () => {
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     expect(cpu.getPC()).toBe(0x100);
     cpu.increasePC();
     expect(cpu.getPC()).toBe(0x101);
@@ -225,14 +196,7 @@ describe("cpu", () => {
         SP	0xFFFE
         PC	0x0100
         */
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     expect(cpu.getRegisterA()).toBe(0x01);
     expect(cpu.getRegisterF()).toBe(0xb0);
     expect(cpu.getRegisterB()).toBe(0x00);
@@ -246,14 +210,7 @@ describe("cpu", () => {
   });
 
   it("should decrement and set the right flags", () => {
-    const cpu = new CPU(
-      fakeBus,
-      interrupts,
-      fakePPU,
-      fakeAPU,
-      fakeDma,
-      fakeTimer,
-    );
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
     cpu.setFlags(0x0);
     cpu.setRegisterB(3);
     cpu.decB();
