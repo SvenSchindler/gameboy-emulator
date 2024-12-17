@@ -131,8 +131,7 @@ var APUImpl = /** @class */ (function () {
             }
             var time = this.audioContext.currentTime;
             var totalTimePassed = time - this.audioStartTime;
-            var samplesToSubmit = (totalTimePassed + this.bufferAhead) * this.audioContext.sampleRate -
-                this.totalNumberOfSamplesSubmitted;
+            var samplesToSubmit = (totalTimePassed + this.bufferAhead) * this.audioContext.sampleRate - this.totalNumberOfSamplesSubmitted;
             if (samplesToSubmit > 0) {
                 var buffer = this.audioContext.createBuffer(1, samplesToSubmit, // check this math, seems to be way off
                 this.audioContext.sampleRate);
@@ -151,22 +150,16 @@ var APUImpl = /** @class */ (function () {
                     if (this.channel1Samples[this.channel1SampleIndex]) {
                         this.mainOutSamples[this.mainOutSampleIndex] =
                             this.mainOutSamples[this.mainOutSampleIndex] +
-                                this.channel1Samples[this.channel1SampleIndex] *
-                                    (this.channel1Volume / 15 / 4) *
-                                    this.envelopes[0];
+                                this.channel1Samples[this.channel1SampleIndex] * (this.channel1Volume / 15 / 4) * this.envelopes[0];
                     }
-                    this.channel1SampleIndex =
-                        (this.channel1SampleIndex + 1) % this.channel1Samples.length;
+                    this.channel1SampleIndex = (this.channel1SampleIndex + 1) % this.channel1Samples.length;
                     // channel 2
                     if (this.channel2Samples[this.channel2SampleIndex]) {
                         this.mainOutSamples[this.mainOutSampleIndex] =
                             this.mainOutSamples[this.mainOutSampleIndex] +
-                                this.channel2Samples[this.channel2SampleIndex] *
-                                    (this.channel2Volume / 15 / 4) *
-                                    this.envelopes[1];
+                                this.channel2Samples[this.channel2SampleIndex] * (this.channel2Volume / 15 / 4) * this.envelopes[1];
                     }
-                    this.channel2SampleIndex =
-                        (this.channel2SampleIndex + 1) % this.channel2Samples.length;
+                    this.channel2SampleIndex = (this.channel2SampleIndex + 1) % this.channel2Samples.length;
                     // channel 3
                     if (this.channel3IsOn) {
                         var nextSample = this.channel3Samples[this.channel3SampleIndex];
@@ -174,15 +167,13 @@ var APUImpl = /** @class */ (function () {
                             this.mainOutSamples[this.mainOutSampleIndex] +
                                 nextSample * (this.channel3Volume / 4) * 0.6 * this.envelopes[2];
                     }
-                    this.channel3SampleIndex =
-                        (this.channel3SampleIndex + 1) % this.channel3Samples.length;
+                    this.channel3SampleIndex = (this.channel3SampleIndex + 1) % this.channel3Samples.length;
                     // channel 4
                     if (this.channel4IsOn) {
                         // one lfsr clock spans multiple samples
                         if (samplesAfterWeNeedToClock > 0) {
                             this.noiseChannelClockIncreaseCounter =
-                                (this.noiseChannelClockIncreaseCounter + 1) %
-                                    samplesAfterWeNeedToClock;
+                                (this.noiseChannelClockIncreaseCounter + 1) % samplesAfterWeNeedToClock;
                             if (this.noiseChannelClockIncreaseCounter === 0) {
                                 this.getNextLFSRSample(); // this will clock it.
                             }
@@ -199,10 +190,8 @@ var APUImpl = /** @class */ (function () {
                                 noiseOuput * (this.channel4Volume / 15 / 4) * this.envelopes[3];
                     }
                     // copy main samples into buffer
-                    nowBuffering[i] =
-                        this.mainOutSamples[this.mainOutSampleIndex] * this.volume;
-                    this.mainOutSampleIndex =
-                        (this.mainOutSampleIndex + 1) % this.mainOutSamples.length;
+                    nowBuffering[i] = this.mainOutSamples[this.mainOutSampleIndex] * this.volume;
+                    this.mainOutSampleIndex = (this.mainOutSampleIndex + 1) % this.mainOutSamples.length;
                     // not really needed
                     for (var i_2 = 0; i_2 < this.envelopes.length; i_2++) {
                         if (this.envelopes[i_2] < 1) {
@@ -214,8 +203,7 @@ var APUImpl = /** @class */ (function () {
                 source.buffer = buffer;
                 source.connect(this.audioContext.destination);
                 // one blob should be played for 1/64 of a second
-                var nextTime = this.audioStartTime +
-                    this.totalNumberOfSamplesSubmitted / this.audioContext.sampleRate;
+                var nextTime = this.audioStartTime + this.totalNumberOfSamplesSubmitted / this.audioContext.sampleRate;
                 source.start(nextTime);
                 this.totalNumberOfSamplesSubmitted += samplesToSubmit;
             }
@@ -669,12 +657,10 @@ var APUImpl = /** @class */ (function () {
         var nibble = this.channel3WaveSampleIndex % 2 === 0 ? "HIGH" : "LOW";
         var sample = 0;
         if (nibble === "HIGH") {
-            sample =
-                channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] >> 4;
+            sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] >> 4;
         }
         else {
-            sample =
-                channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] & 0xf;
+            sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] & 0xf;
         }
         sample = (sample / 15) * 2 - 1; // move it so that it's between -1 and 1
         this.channel3WaveSampleIndex = (this.channel3WaveSampleIndex + 1) % 32; // 32 samples in the buffer
@@ -721,9 +707,7 @@ var APUImpl = /** @class */ (function () {
     APUImpl.prototype.getNextLFSRSample = function () {
         var result = this.channel4LfsrState & 1;
         var oneBeforeLast = (this.channel4LfsrState >> 1) & 1;
-        this.channel4LfsrState =
-            (this.channel4LfsrState >> 1) |
-                ((result ^ oneBeforeLast) << (this.channel4LfsrWidth - 1));
+        this.channel4LfsrState = (this.channel4LfsrState >> 1) | ((result ^ oneBeforeLast) << (this.channel4LfsrWidth - 1));
         return result;
     };
     // Supporting proper pcm based on channel 3 ticks would require some refactoring to the audio engine
@@ -751,14 +735,14 @@ var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
  * - we haven't implemented some PPU reads
  */
 var BusImpl = /** @class */ (function () {
-    function BusImpl(cart, ram, interrupts, ppu, serial, timer, startDma, joypad, apu) {
+    function BusImpl(cart, ram, interrupts, ppu, serial, timer, writeFF46, joypad, apu) {
         this.cart = cart;
         this.ram = ram;
         this.interrupts = interrupts;
         this.ppu = ppu;
         this.serial = serial;
         this.timer = timer;
-        this.startDma = startDma;
+        this.writeFF46 = writeFF46;
         this.joypad = joypad;
         this.apu = apu;
         this.debugging = false;
@@ -796,9 +780,7 @@ var BusImpl = /** @class */ (function () {
         }
         // Not Usable	Nintendo says use of this area is prohibited.
         else if (address >= 0xfea0 && address <= 0xfeff) {
-            throw new Error("not usable area read for address " +
-                (0, utils_1.toHexString)(address) +
-                " not implemented");
+            throw new Error("not usable area read for address " + (0, utils_1.toHexString)(address) + " not implemented");
         }
         // I/O Registers
         else if (address >= 0xff00 && address <= 0xff7f) {
@@ -885,41 +867,46 @@ var BusImpl = /** @class */ (function () {
                 result = 0x00;
             }
             else if (address === 0xff40) {
-                result = this.ppu.getLCDControlerRegister();
+                result = this.ppu.readFF40();
             }
             else if (address === 0xff41) {
-                result = this.ppu.getStatusRegister();
+                result = this.ppu.readFF41();
             }
             else if (address === 0xff42) {
-                result = this.ppu.getViewportY();
+                result = this.ppu.readFF42();
             }
             else if (address === 0xff43) {
-                result = this.ppu.getViewportX();
+                result = this.ppu.readFF43();
             }
             else if (address === 0xff44) {
-                result = this.ppu.getLCDY();
+                result = this.ppu.readFF44();
             }
             else if (address === 0xff45) {
-                result = this.ppu.getLYC();
+                result = this.ppu.readFF45();
             }
             else if (address === 0xff47) {
-                result = this.ppu.getBackgroundColorPalette();
+                result = this.ppu.readFF47();
             }
             else if (address === 0xff48) {
-                result = this.ppu.getObjectColorPalette0();
+                result = this.ppu.readFF48();
             }
             else if (address === 0xff49) {
-                result = this.ppu.getObjectColorPalette1();
+                result = this.ppu.readFF49();
             }
             else if (address === 0xff4a) {
-                result = this.ppu.getWindowYPosition();
+                result = this.ppu.readFF4A();
             }
             else if (address === 0xff4b) {
-                result = this.ppu.getWindowXPosition();
+                result = this.ppu.readFF4B();
             }
             else if (address === 0xff4d) {
                 // Todo: speed switch?
+                // throw Error("ff4d speed switch not implemented");
                 result = 0xff;
+            }
+            else if (address === 0xff4f) {
+                // we don't support vram bank selects, that's a GBC thing
+                result = 0x0;
             }
             else {
                 throw new Error("io read for address " + (0, utils_1.toHexString)(address) + " not implemented");
@@ -1109,19 +1096,19 @@ var BusImpl = /** @class */ (function () {
                 return;
             }
             if (address === 0xff40) {
-                this.ppu.setLCDControlerRegister(value);
+                this.ppu.writeFF40(value);
                 return;
             }
             if (address === 0xff41) {
-                this.ppu.setStatusRegister(value);
+                this.ppu.writeFF41(value);
                 return;
             }
             if (address === 0xff42) {
-                this.ppu.setViewportY(value);
+                this.ppu.writeFF42(value);
                 return;
             }
             if (address === 0xff43) {
-                this.ppu.setViewportX(value);
+                this.ppu.writeFF43(value);
                 return;
             }
             if (address === 0xff44) {
@@ -1129,43 +1116,44 @@ var BusImpl = /** @class */ (function () {
                 return;
             }
             if (address === 0xff45) {
-                this.ppu.setLYC(value);
+                this.ppu.writeFF45(value);
                 return;
             }
             if (address === 0xff46) {
                 // Todo - we should actually check if there's a DMA in progress.
-                this.startDma(value & 0xff);
+                this.writeFF46(value & 0xff);
                 return;
             }
             if (address === 0xff47) {
-                this.ppu.setBackgroundColorPalette(value);
+                this.ppu.writeFF47(value);
                 return;
             }
             if (address === 0xff48) {
-                this.ppu.setObjectColorPalette0(value);
+                this.ppu.writeFF48(value);
                 return;
             }
             if (address === 0xff49) {
-                this.ppu.setObjectColorPalette1(value);
+                this.ppu.writeFF49(value);
                 return;
             }
             if (address === 0xff4a) {
-                this.ppu.setWindowYPosition(value);
+                this.ppu.writeFF4A(value);
                 return;
             }
             if (address === 0xff4b) {
-                this.ppu.setWindowXPosition(value);
+                this.ppu.writeFF4B(value);
+                return;
+            }
+            else if (address === 0xff4f) {
+                // we don't support vram bank selects, that's a GBC thing
                 return;
             }
             if (address === 0xff7f) {
-                // invalid write?
+                // Tetris writes to this memory location, we just ignore it
+                // https://www.reddit.com/r/EmuDev/comments/5nixai/gb_tetris_writing_to_unused_memory/
                 return;
             }
-            throw new Error("io write of value " +
-                (0, utils_1.toHexString)(value) +
-                " to address " +
-                (0, utils_1.toHexString)(address) +
-                " not implemented");
+            throw new Error("io write of value " + (0, utils_1.toHexString)(value) + " to address " + (0, utils_1.toHexString)(address) + " not implemented");
         }
         // High RAM (HRAM)
         if (address >= 0xff80 && address <= 0xfffe) {
@@ -1200,7 +1188,7 @@ exports.BusImpl = BusImpl;
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CartImpMBC1 = exports.CartImplRomOnly = void 0;
+exports.CartImpMBC5 = exports.CartImpMBC2 = exports.CartImpMBC1 = exports.CartImplRomOnly = void 0;
 exports.createCart = createCart;
 function createCart(type, rom) {
     switch (type) {
@@ -1212,6 +1200,12 @@ function createCart(type, rom) {
             return new CartImpMBC1(rom);
         case "MBC1+RAM+BATTERY":
             return new CartImpMBC1(rom);
+        case "MBC2":
+            return new CartImpMBC2(rom);
+        case "MBC2+BATTERY":
+            return new CartImpMBC2(rom);
+        case "MBC5+RAM+BATTERY":
+            return new CartImpMBC5(rom);
         case "UNKNOWN":
             throw new Error("cart type not supported");
     }
@@ -1274,8 +1268,7 @@ var CartImpMBC1 = /** @class */ (function () {
                     this.ramBanks[address - 0xa000] = value;
                 }
                 else {
-                    this.ramBanks[this.selectedRamBank * 0x2000 + (address - 0xa000)] =
-                        value;
+                    this.ramBanks[this.selectedRamBank * 0x2000 + (address - 0xa000)] = value;
                 }
                 return;
             }
@@ -1299,10 +1292,7 @@ var CartImpMBC1 = /** @class */ (function () {
             var romBank = (value & 31) | (this.selectedRomBank & 96);
             // Rom romBank 0 gets automatcially converted to 1 because you cant map 0 twice,
             // this also applies to banks 0x20, 0x40 and 0x60
-            if (romBank == 0x00 ||
-                romBank == 0x20 ||
-                romBank == 0x40 ||
-                romBank == 0x60) {
+            if (romBank == 0x00 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60) {
                 this.selectedRomBank = romBank + 1;
             }
             else {
@@ -1314,8 +1304,7 @@ var CartImpMBC1 = /** @class */ (function () {
             if (this.mode === 0) {
                 // rom banking mode
                 var highBitsRomBank = value & 96;
-                this.selectedRomBank =
-                    (this.selectedRomBank & 31) | (highBitsRomBank << 5);
+                this.selectedRomBank = (this.selectedRomBank & 31) | (highBitsRomBank << 5);
             }
             else {
                 // ram banking mode
@@ -1332,6 +1321,134 @@ var CartImpMBC1 = /** @class */ (function () {
     return CartImpMBC1;
 }());
 exports.CartImpMBC1 = CartImpMBC1;
+var CartImpMBC2 = /** @class */ (function () {
+    function CartImpMBC2(rom) {
+        this.rom = rom;
+        this.selectedRomBank = 1;
+        this.ramEnabled = false;
+        this.ram = [];
+    }
+    CartImpMBC2.prototype.read = function (address) {
+        // ROM Bank 0 - read only
+        if (address >= 0x0 && address <= 0x3fff) {
+            return this.rom[address];
+        }
+        // ROM Bank 1 - 16 - read only
+        if (address >= 0x4000 && address <= 0x7fff) {
+            return this.rom[this.selectedRomBank * 0x4000 + (address - 0x4000)];
+        }
+        // Built In Ram
+        if (address >= 0xa000 && address <= 0xa1ff) {
+            return this.ram[address - 0xa000];
+        }
+        // Echo 0xA000 - 0xA1FF, only lower 9 bits
+        if (address >= 0xa200 && address <= 0xbfff) {
+            var lower9Bits = address & 511;
+            return this.ram[lower9Bits];
+        }
+        return 0;
+    };
+    CartImpMBC2.prototype.write = function (address, value) {
+        // Ram enable + rom bank register
+        if (address >= 0x0 && address <= 0x3fff) {
+            // least significant bit of upper address byte controls ram/rom config
+            // Shift out lower byte of address
+            var bit8 = ((address & 0xffff) >> 8) & 0x1;
+            if (!bit8) {
+                // ram config
+                if ((value & 0xff) === 0x0a) {
+                    this.ramEnabled = true;
+                }
+                else {
+                    this.ramEnabled = false;
+                }
+            }
+            else {
+                // rom config
+                if ((value & 0xff) === 0) {
+                    this.selectedRomBank = 1;
+                }
+                else {
+                    this.selectedRomBank = value & 0xf;
+                }
+            }
+        }
+        // Built In Ram
+        if (address >= 0xa000 && address <= 0xa1ff) {
+            this.ram[address - 0xa000] = value & 0xff;
+        }
+        // Echo 0xA000 - 0xA1FF, only lower 9 bits
+        if (address >= 0xa200 && address <= 0xbfff) {
+            var lower9Bits = address & 511;
+            this.ram[lower9Bits] = value & 0xff;
+        }
+    };
+    return CartImpMBC2;
+}());
+exports.CartImpMBC2 = CartImpMBC2;
+var CartImpMBC5 = /** @class */ (function () {
+    function CartImpMBC5(rom) {
+        this.rom = rom;
+        this.selectedRomBank = 1;
+        this.selectedRamBank = 1;
+        this.ramBanks = [];
+        this.ramEnabled = false;
+    }
+    CartImpMBC5.prototype.read = function (address) {
+        // ROM Bank 0 - read only
+        if (address >= 0x0 && address <= 0x3fff) {
+            return this.rom[address];
+        }
+        // ROM Bank 1 - 16 - read only
+        if (address >= 0x4000 && address <= 0x7fff) {
+            return this.rom[this.selectedRomBank * 0x4000 + (address - 0x4000)];
+        }
+        // Built In Ram
+        if (address >= 0xa000 && address <= 0xbfff) {
+            if (this.ramEnabled) {
+                if (!this.ramBanks[this.selectedRamBank]) {
+                    this.ramBanks[this.selectedRamBank] = [];
+                }
+                return this.ramBanks[this.selectedRamBank][address - 0xa000];
+            }
+        }
+        return 0;
+    };
+    CartImpMBC5.prototype.write = function (address, value) {
+        if (address >= 0x0 && address <= 0x1fff) {
+            if (value === 0x0a) {
+                this.ramEnabled = true;
+            }
+            else {
+                // Todo (disable only for 0x0?)
+                this.ramEnabled = false;
+            }
+        }
+        if (address >= 0x2000 && address <= 0x2fff) {
+            // 8 most significant bits for rom bank
+            this.selectedRomBank = (this.selectedRomBank & 256) | (value & 0xff);
+        }
+        if (address >= 0x3000 && address <= 0x3fff) {
+            // 9th bit of rom bank
+            this.selectedRomBank = ((value & 0x1) << 9) | (this.selectedRomBank & 0xff);
+        }
+        if (address >= 0x4000 && address <= 0x5fff) {
+            // ram bank number
+            this.selectedRamBank = value & 0xf;
+        }
+        // Built In Ram
+        if (address >= 0xa000 && address <= 0xbfff) {
+            if (this.ramEnabled) {
+                if (!this.ramBanks[this.selectedRamBank]) {
+                    this.ramBanks[this.selectedRamBank] = [];
+                }
+                this.ramBanks[this.selectedRamBank][address - 0xa000] = value & 0xff;
+            }
+        }
+    };
+    return CartImpMBC5;
+}());
+exports.CartImpMBC5 = CartImpMBC5;
 
 
 /***/ }),
@@ -2144,18 +2261,14 @@ var CPU = /** @class */ (function () {
             _this.increasePC();
             var u = 0;
             var cFlag = 0;
-            if (_this.getFlagH() === 1 ||
-                (_this.getFlagN() === 0 && (_this.getRegisterA() & 0xf) > 9)) {
+            if (_this.getFlagH() === 1 || (_this.getFlagN() === 0 && (_this.getRegisterA() & 0xf) > 9)) {
                 u = 6;
             }
-            if (_this.getFlagC() === 1 ||
-                (_this.getFlagN() === 0 && _this.getRegisterA() > 0x99)) {
+            if (_this.getFlagC() === 1 || (_this.getFlagN() === 0 && _this.getRegisterA() > 0x99)) {
                 u |= 0x60;
                 cFlag = 1;
             }
-            var result = _this.getFlagN() === 0
-                ? (_this.getRegisterA() + u) & 0xff
-                : (_this.getRegisterA() - u) & 0xff;
+            var result = _this.getFlagN() === 0 ? (_this.getRegisterA() + u) & 0xff : (_this.getRegisterA() - u) & 0xff;
             _this.setRegisterA(result);
             var zFlag = result === 0 ? 1 : 0;
             _this.setFlagZ(zFlag);
@@ -3781,10 +3894,7 @@ var CPU = /** @class */ (function () {
                 [function () { return _this.getRegisterE(); }, function (value) { return _this.setRegisterE(value); }],
                 [function () { return _this.getRegisterH(); }, function (value) { return _this.setRegisterH(value); }],
                 [function () { return _this.getRegisterL(); }, function (value) { return _this.setRegisterL(value); }],
-                [
-                    function () { return _this.bus.read(_this.getRegisterHL()); },
-                    function (value) { return _this.bus.write(_this.getRegisterHL(), value); },
-                ],
+                [function () { return _this.bus.read(_this.getRegisterHL()); }, function (value) { return _this.bus.write(_this.getRegisterHL(), value); }],
                 [function () { return _this.getRegisterA(); }, function (value) { return _this.setRegisterA(value); }],
             ];
             _this.increasePC();
@@ -3800,9 +3910,7 @@ var CPU = /** @class */ (function () {
                 cycles = operationExec(operands[operand][0], operands[operand][1], _this);
                 _this.tick(cycles);
                 // special ops with 12 ticks
-                var twelveTickOperations = [
-                    0x46, 0x56, 0x66, 0x76, 0x4e, 0x5e, 0x6e, 0x7e,
-                ];
+                var twelveTickOperations = [0x46, 0x56, 0x66, 0x76, 0x4e, 0x5e, 0x6e, 0x7e];
                 // extra cycles for (HL) operations
                 if (((operation & 0xf) === 0x6 || (operation & 0xf) === 0xe) &&
                     twelveTickOperations.includes(operation) === false) {
@@ -5781,7 +5889,9 @@ var CPU = /** @class */ (function () {
             }
             // ms hack to compensate for set timeout, we don't want to sound to fluctuate too much which is why we dont' want this value to change too often
             // we should actually measure this
-        }, this.timePerFrameMs - (timeTakenMs + 3));
+        }, 
+        // Todo(put the timing back in)
+        this.timePerFrameMs - (timeTakenMs + 0));
     };
     CPU.prototype.step = function (logStatements) {
         if (logStatements === void 0) { logStatements = false; }
@@ -5855,8 +5965,7 @@ var CPU = /** @class */ (function () {
         // handle interrupts
         if (this.interrupts.isInterruptsEnabled()) {
             // VBLANK 0x40
-            if (this.interrupts.getInterruptFlag() & 0x1 &&
-                this.interrupts.getIE() & 0x1) {
+            if (this.interrupts.getInterruptFlag() & 0x1 && this.interrupts.getIE() & 0x1) {
                 this.lastXOperations.push("vblank interrupt");
                 if (this.lastXOperations.length > this.maxLastOperations) {
                     this.lastXOperations.shift();
@@ -5866,8 +5975,7 @@ var CPU = /** @class */ (function () {
                 this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 254);
             }
             // LCD / stat 0x48
-            else if (this.interrupts.getInterruptFlag() & 2 &&
-                this.interrupts.getIE() & 2) {
+            else if (this.interrupts.getInterruptFlag() & 2 && this.interrupts.getIE() & 2) {
                 this.lastXOperations.push("lcd stat interrupt");
                 if (this.lastXOperations.length > this.maxLastOperations) {
                     this.lastXOperations.shift();
@@ -5876,8 +5984,7 @@ var CPU = /** @class */ (function () {
                 this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 253);
             }
             // Timer / stat 0x50
-            else if (this.interrupts.getInterruptFlag() & 4 &&
-                this.interrupts.getIE() & 4) {
+            else if (this.interrupts.getInterruptFlag() & 4 && this.interrupts.getIE() & 4) {
                 this.lastXOperations.push("timer stat interrupt");
                 if (this.lastXOperations.length > this.maxLastOperations) {
                     this.lastXOperations.shift();
@@ -5886,8 +5993,7 @@ var CPU = /** @class */ (function () {
                 this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 251);
             }
             // Serial 0x58 -- this shouldnt ever get invoked in our impl
-            else if (this.interrupts.getInterruptFlag() & 8 &&
-                this.interrupts.getIE() & 8) {
+            else if (this.interrupts.getInterruptFlag() & 8 && this.interrupts.getIE() & 8) {
                 this.lastXOperations.push("serial interrupt");
                 if (this.lastXOperations.length > this.maxLastOperations) {
                     this.lastXOperations.shift();
@@ -5896,8 +6002,7 @@ var CPU = /** @class */ (function () {
                 this.interrupts.setInterruptFlag(this.interrupts.getInterruptFlag() & 247);
             }
             // Joypad 0x60
-            else if (this.interrupts.getInterruptFlag() & 16 &&
-                this.interrupts.getIE() & 16) {
+            else if (this.interrupts.getInterruptFlag() & 16 && this.interrupts.getIE() & 16) {
                 this.lastXOperations.push("joypad interrupt");
                 if (this.lastXOperations.length > this.maxLastOperations) {
                     this.lastXOperations.shift();
@@ -5958,16 +6063,9 @@ var CPU = /** @class */ (function () {
                 this.printLastOperations();
                 break;
             }
-            var param1 = instruction.size > 1
-                ? " " + (0, utils_1.toHexString)(this.bus.read(this.getPC() + pcOffset + 1, true))
-                : "";
-            var param2 = instruction.size > 2
-                ? " " + (0, utils_1.toHexString)(this.bus.read(this.getPC() + pcOffset + 2, true))
-                : "";
-            commands.push([
-                this.getPC() + pcOffset,
-                "".concat(instruction.name, " (").concat((0, utils_1.toHexString)(instructionNo)).concat(param1).concat(param2, ")"),
-            ]);
+            var param1 = instruction.size > 1 ? " " + (0, utils_1.toHexString)(this.bus.read(this.getPC() + pcOffset + 1, true)) : "";
+            var param2 = instruction.size > 2 ? " " + (0, utils_1.toHexString)(this.bus.read(this.getPC() + pcOffset + 2, true)) : "";
+            commands.push([this.getPC() + pcOffset, "".concat(instruction.name, " (").concat((0, utils_1.toHexString)(instructionNo)).concat(param1).concat(param2, ")")]);
             pcOffset += instruction.size;
         }
         return commands;
@@ -5978,7 +6076,7 @@ var CPU = /** @class */ (function () {
         this.lastXOperations.forEach(function (o) { return console.log(o); });
         console.log("-----");
     };
-    // only returns the top two elemtn
+    // only returns the top two element
     CPU.prototype.getStackInfo = function () {
         var sp = this.getSP();
         var result = [];
@@ -6197,7 +6295,7 @@ var DMAImpl = /** @class */ (function () {
             this.active = false;
         }
     };
-    DMAImpl.prototype.startDma = function (address) {
+    DMAImpl.prototype.writeFF46 = function (address) {
         this.bytesTransferred = 0;
         this.active = true;
         this.startAddress = address;
@@ -6240,6 +6338,9 @@ var Gameboy = /** @class */ (function () {
             0x01: "MBC1",
             0x02: "MBC1+RAM",
             0x03: "MBC1+RAM+BATTERY",
+            0x05: "MBC2",
+            0x06: "MBC2+BATTERY",
+            0x1b: "MBC5+RAM+BATTERY",
         };
     }
     Gameboy.prototype.load = function (rom) {
@@ -6259,7 +6360,7 @@ var Gameboy = /** @class */ (function () {
         var timer = new timer_1.TimerImpl(interrupts);
         this.joypad = new joypad_1.JoyPadImpl(interrupts);
         this.apu = new apu_1.APUImpl();
-        this.bus = new bus_1.BusImpl(cart, ram, interrupts, this.ppu, serial, timer, function (startAddress) { return dma.startDma(startAddress); }, this.joypad, this.apu);
+        this.bus = new bus_1.BusImpl(cart, ram, interrupts, this.ppu, serial, timer, function (startAddress) { return dma.writeFF46(startAddress); }, this.joypad, this.apu);
         var dma = new dma_1.DMAImpl(this.bus, this.ppu);
         this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, dma, timer);
         this.cpu.run();
@@ -6275,12 +6376,10 @@ var Gameboy = /** @class */ (function () {
         return this.cpu.getStackInfo();
     };
     Gameboy.prototype.kill = function () {
-        var _a, _b;
-        // This will stop cpu and the ppu debug refresh
-        // and can't be resumed. After calling this,
+        var _a;
+        // This will stop cpu and can't be resumed. After calling this,
         // you'll need to create a new gameboy instance.
         (_a = this.cpu) === null || _a === void 0 ? void 0 : _a.kill();
-        (_b = this.ppu) === null || _b === void 0 ? void 0 : _b.kill();
     };
     Gameboy.prototype.mute = function () {
         var _a;
@@ -6547,6 +6646,188 @@ exports.JoyPadImpl = JoyPadImpl;
 
 /***/ }),
 
+/***/ "./src/gameboy/lcddebug.ts":
+/*!*********************************!*\
+  !*** ./src/gameboy/lcddebug.ts ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.LcdDebugRenderer = void 0;
+var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
+var lcdutils_1 = __webpack_require__(/*! ./lcdutils */ "./src/gameboy/lcdutils.ts");
+var LcdDebugRenderer = /** @class */ (function () {
+    function LcdDebugRenderer(tileCanvas, backgroundCanvas, vram, getPPUInfo) {
+        this.vram = vram;
+        this.getPPUInfo = getPPUInfo;
+        // For background debug
+        this.currentLineInBackground = 0; // 0 - 255
+        this.currentTileInLine = 0; // from 0 - 31
+        // In order to avoid overrides we're keeping track of where we put a border.
+        this.scrollBorderPositions = [];
+        // For tile debug
+        this.currentTileInTileView = 0;
+        this.currentLineInTile = 0;
+        this.colors = [
+            [174, 255, 255, 255],
+            [21, 205, 214, 255],
+            [16, 173, 173, 255],
+            [76, 17, 18, 255],
+        ];
+        this.backgroundCanvasContext = backgroundCanvas.getContext("2d", {
+            willReadFrequently: true,
+        });
+        this.backgroundImageData = this.backgroundCanvasContext.getImageData(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+        this.tileViewCanvasContext = tileCanvas.getContext("2d", {
+            willReadFrequently: true,
+        });
+        this.tileViewImageData = this.tileViewCanvasContext.getImageData(0, 0, tileCanvas.width, tileCanvas.height);
+        this.backgroundColorPalette = this.getBackgroundColorPalette();
+    }
+    // We'll render the tiles and the background within
+    // the 144 * (80 + 172) dots = 36288 = lines * dots for mode 2 + mode 3.
+    // Just so that we don't block too much time for debug rendering.
+    // We've got 32*32 = 1024 background tiles picked from a total number
+    // of 384 tiles. That gives us approx 36288 / (1024 + 384) = 25 dots per tile.
+    // So we can easily render one tile line at a time.
+    LcdDebugRenderer.prototype.tick = function () {
+        // We're done
+        if (this.isBackgroundDone() && this.isTileViewDone()) {
+            return;
+        }
+        if (!this.isBackgroundDone()) {
+            this.renderCurrentTileLineForBackgroundView();
+            this.currentTileInLine = (this.currentTileInLine + 1) % 32;
+            if (this.currentTileInLine === 0) {
+                // move one line further
+                this.currentLineInBackground++;
+            }
+            return;
+        }
+        if (!this.isTileViewDone()) {
+            this.renderCurrentTileLineForTileView();
+            this.currentLineInTile = (this.currentLineInTile + 1) % 8;
+            if (this.currentLineInTile === 0) {
+                this.currentTileInTileView++;
+            }
+        }
+    };
+    LcdDebugRenderer.prototype.resetForNextFrame = function () {
+        // we'll draw what we have before moving on to the next frame
+        // for background debug
+        this.backgroundCanvasContext.putImageData(this.backgroundImageData, 0, 0);
+        this.backgroundColorPalette = this.getBackgroundColorPalette();
+        this.currentLineInBackground = 0;
+        this.currentTileInLine = 0;
+        // for tile debug
+        this.tileViewCanvasContext.putImageData(this.tileViewImageData, 0, 0);
+        this.currentLineInTile = 0;
+        this.currentTileInTileView = 0;
+        this.scrollBorderPositions = [];
+    };
+    LcdDebugRenderer.prototype.getBackgroundColorPalette = function () {
+        var bgColorId0 = this.getPPUInfo().BGP_ff47 & 0x03;
+        var bgColorId1 = (this.getPPUInfo().BGP_ff47 >> 2) & 0x03;
+        var bgColorId2 = (this.getPPUInfo().BGP_ff47 >> 4) & 0x03;
+        var bgColorId3 = (this.getPPUInfo().BGP_ff47 >> 6) & 0x03;
+        return [bgColorId0, bgColorId1, bgColorId2, bgColorId3];
+    };
+    LcdDebugRenderer.prototype.renderCurrentTileLineForBackgroundView = function () {
+        // data area 0 = 8800–97FF; 1 = 8000–8FFF, keep in mind that 0 points to 0x8000
+        var bgMapArea = (this.getPPUInfo().LCDC_ff40 >> 3) & 0x1;
+        var tileMapStart = bgMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
+        var tileAddressingMode = (this.getPPUInfo().LCDC_ff40 >> 4) & 0x1;
+        var tileDataStart = tileAddressingMode === 0 ? 0x9000 - 0x8000 : 0x8000 - 0x8000;
+        // identify the tile number
+        // tile map contains tile index (tile maps are 32x32)
+        var mapIndex = tileMapStart + Math.floor(this.currentLineInBackground / 8) * 32 + Math.floor(this.currentTileInLine);
+        var currentTileIndex = this.vram[mapIndex];
+        if (tileAddressingMode === 0) {
+            currentTileIndex = (0, utils_1.signedFrom8Bits)(currentTileIndex);
+        }
+        var currentLineInTile = this.currentLineInBackground % 8;
+        var currentTileDataLow = this.vram[tileDataStart + currentTileIndex * 16 + currentLineInTile * 2];
+        var currentTileDataHigh = this.vram[tileDataStart + currentTileIndex * 16 + currentLineInTile * 2 + 1];
+        for (var i = 7; i >= 0; i--) {
+            var color = this.colors[this.backgroundColorPalette[(((currentTileDataHigh >> i) & 0x1) << 1) | ((currentTileDataLow >> i) & 0x1)]];
+            var x = this.currentTileInLine * 8 + (7 - i);
+            var y = this.currentLineInBackground;
+            // Don't draw over the border
+            if (!this.scrollBorderPositions[x] || !this.scrollBorderPositions[x][y]) {
+                lcdutils_1.LcdUtils.drawPixel(this.backgroundImageData, 256, x, y, color);
+            }
+        }
+    };
+    LcdDebugRenderer.prototype.drawScrollBorderPixel = function (x, y) {
+        var red = [255, 0, 0, 255];
+        lcdutils_1.LcdUtils.drawPixel(this.backgroundImageData, 256, x, y, red);
+        lcdutils_1.LcdUtils.drawPixel(this.backgroundImageData, 256, Math.min(255, x + 1), y, red);
+        lcdutils_1.LcdUtils.drawPixel(this.backgroundImageData, 256, x, Math.min(255, y + 1), red);
+        lcdutils_1.LcdUtils.drawPixel(this.backgroundImageData, 256, Math.min(255, x + 1), Math.min(255, y + 1), red);
+        if (this.scrollBorderPositions[x] === undefined) {
+            this.scrollBorderPositions[x] = [];
+        }
+        if (this.scrollBorderPositions[x + 1] === undefined) {
+            this.scrollBorderPositions[x + 1] = [];
+        }
+        this.scrollBorderPositions[x][y] = true;
+        // This set impl seems to be too slow, maybe let's replace it
+        this.scrollBorderPositions[x + 1][y] = true;
+        this.scrollBorderPositions[x][y + 1] = true;
+        this.scrollBorderPositions[x + 1][y + 1] = true;
+    };
+    LcdDebugRenderer.prototype.renderCurrentTileLineForTileView = function () {
+        var currentTileDataLow = this.vram[this.currentTileInTileView * 16 + this.currentLineInTile * 2];
+        var currentTileDataHigh = this.vram[this.currentTileInTileView * 16 + this.currentLineInTile * 2 + 1];
+        for (var i = 7; i >= 0; i--) {
+            var color = this.colors[this.backgroundColorPalette[(((currentTileDataHigh >> i) & 0x1) << 1) | ((currentTileDataLow >> i) & 0x1)]];
+            var x = Math.floor(this.currentTileInTileView % 16) * 8 + (7 - i);
+            var y = Math.floor(this.currentTileInTileView / 16) * 8 + this.currentLineInTile;
+            lcdutils_1.LcdUtils.drawPixel(this.tileViewImageData, 128, x, y, color);
+        }
+    };
+    LcdDebugRenderer.prototype.isBackgroundDone = function () {
+        // we've got 256 background tiles
+        return this.currentLineInBackground > 255;
+    };
+    LcdDebugRenderer.prototype.isTileViewDone = function () {
+        // we've got 384 tiles in the buffer
+        return this.currentTileInTileView > 383;
+    };
+    return LcdDebugRenderer;
+}());
+exports.LcdDebugRenderer = LcdDebugRenderer;
+
+
+/***/ }),
+
+/***/ "./src/gameboy/lcdutils.ts":
+/*!*********************************!*\
+  !*** ./src/gameboy/lcdutils.ts ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.LcdUtils = void 0;
+var LcdUtils = /** @class */ (function () {
+    function LcdUtils() {
+    }
+    LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color) {
+        var index = (x + y * canvasWidth) * 4;
+        canvasData.data[index + 0] = color[0];
+        canvasData.data[index + 1] = color[1];
+        canvasData.data[index + 2] = color[2];
+        canvasData.data[index + 3] = color[3];
+    };
+    return LcdUtils;
+}());
+exports.LcdUtils = LcdUtils;
+
+
+/***/ }),
+
 /***/ "./src/gameboy/ppu.ts":
 /*!****************************!*\
   !*** ./src/gameboy/ppu.ts ***!
@@ -6557,50 +6838,320 @@ exports.JoyPadImpl = JoyPadImpl;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PPUImpl = void 0;
 var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
-/**
- * Simple PPU Impl with a few debugging infos.
- * Known issues:
- * -> tileAddressingMode = (this.LCDC >> 4) & 0x1; for background/window is not updated between lines which breaks layout for some games.
- */
-var PPUImpl = /** @class */ (function () {
-    function PPUImpl(lcdCanvas, tileCanvas, backgroundCanvas, interrupts) {
-        this.lcdCanvas = lcdCanvas;
-        this.tileCanvas = tileCanvas;
-        this.backgroundCanvas = backgroundCanvas;
-        this.interrupts = interrupts;
-        // killed is just for us to stop debugging outputs, otherwise
-        // different gameboy instances would fight for the same canvas
-        this.killed = false;
-        // VRAM 8000-9FFF, 8192 bytes
-        this.vram = [];
-        // $FE00-FE9F, OAM, holds 160 bytes of object attributes, 40 entries, 4 bytes each
-        this.oam = [];
-        // LCD control
-        this.LCDC = 0x91;
-        // 0xFF41 STAT: LCD status register
-        this.STAT = 0;
-        // 0xFF42
-        this.viewportY = 0;
-        // 0xFF43
-        this.viewportX = 0;
-        // 0xFF44 readonly
-        this.LY = 0;
-        // 0xFF45
-        this.LYC = 0;
-        // Just some different color palettes
-        // private colors: number[][] = [
-        //     [255,255,255,255],
-        //     [100,100, 100,255],
-        //     [70,70,70,255],
-        //     [0,0,0,255],
-        // ];
-        // Classic gameboy green
-        // private colors: number[][] = [
-        //     [220,255,220,255],
-        //     [80,100, 80,255],
-        //     [50,70,50,255],
-        //     [0,20,0,255],
-        // ];
+var lcddebug_1 = __webpack_require__(/*! ./lcddebug */ "./src/gameboy/lcddebug.ts");
+var lcdutils_1 = __webpack_require__(/*! ./lcdutils */ "./src/gameboy/lcdutils.ts");
+var SpritePixelFetcher = /** @class */ (function () {
+    function SpritePixelFetcher(vram, getPPUInfo) {
+        this.vram = vram;
+        this.getPPUInfo = getPPUInfo;
+        this.spriteFifo = [];
+        this.fetchingCompleted = false;
+        this.currentTileDataLow = 0x0;
+        this.currentTileDataHigh = 0x0;
+        this.currentLine = 0;
+        // We still keep track of the tile index because for flipped 8x16 tiles we'll have to process the second tile first
+        this.currentTileIndex = 0;
+        this.steps = [
+            { name: "Get tile index", dotCount: 2 },
+            { name: "Get tile data low", dotCount: 2 },
+            { name: "Get tile data high", dotCount: 2 },
+            { name: "Push", dotCount: 1 },
+        ];
+        // To keep track where we are in the step
+        this.currentStepIndex = 0;
+        this.currentDotForStep = 0;
+    }
+    SpritePixelFetcher.prototype.tick = function () {
+        var _a;
+        if (!this.currentSprite) {
+            // We don't do anything if we haven't actually started loading a sprite.
+            return;
+        }
+        var currentStep = this.steps[this.currentStepIndex];
+        if (currentStep.name === "Get tile index" && this.currentDotForStep === 0) {
+            var flipY = (this.currentSprite.attributes & 64) > 0;
+            var tileHeight = ((this.getPPUInfo().LCDC_ff40 >> 2) & 0x1) === 0 ? 8 : 16;
+            if (tileHeight === 16) {
+                this.currentSprite.tileIndex = this.currentSprite.tileIndex & 254;
+            }
+            // For flipped 8x16 tiles start off with the second tile
+            this.currentTileIndex =
+                flipY && tileHeight === 16 ? this.currentSprite.tileIndex + 1 : this.currentSprite.tileIndex;
+        }
+        else if (currentStep.name === "Get tile data low" && this.currentDotForStep === 0) {
+            var flipY = (this.currentSprite.attributes & 64) > 0;
+            var lineInTile = this.currentLine - (this.currentSprite.yPosition - 16);
+            if (flipY) {
+                lineInTile = 7 - lineInTile;
+            }
+            this.currentTileDataLow = this.vram[this.currentTileIndex * 16 + lineInTile * 2];
+        }
+        else if (currentStep.name === "Get tile data high" && this.currentDotForStep === 0) {
+            var flipY = (this.currentSprite.attributes & 64) > 0;
+            var lineInTile = this.currentLine - (this.currentSprite.yPosition - 16);
+            if (flipY) {
+                lineInTile = 7 - lineInTile;
+            }
+            this.currentTileDataHigh = this.vram[this.currentTileIndex * 16 + lineInTile * 2 + 1];
+        }
+        else if (currentStep.name === "Push") {
+            var color0 = (((this.currentTileDataHigh >> 7) & 0x1) << 1) | ((this.currentTileDataLow >> 7) & 0x1);
+            var color1 = (((this.currentTileDataHigh >> 6) & 0x1) << 1) | ((this.currentTileDataLow >> 6) & 0x1);
+            var color2 = (((this.currentTileDataHigh >> 5) & 0x1) << 1) | ((this.currentTileDataLow >> 5) & 0x1);
+            var color3 = (((this.currentTileDataHigh >> 4) & 0x1) << 1) | ((this.currentTileDataLow >> 4) & 0x1);
+            var color4 = (((this.currentTileDataHigh >> 3) & 0x1) << 1) | ((this.currentTileDataLow >> 3) & 0x1);
+            var color5 = (((this.currentTileDataHigh >> 2) & 0x1) << 1) | ((this.currentTileDataLow >> 2) & 0x1);
+            var color6 = (((this.currentTileDataHigh >> 1) & 0x1) << 1) | ((this.currentTileDataLow >> 1) & 0x1);
+            var color7 = (((this.currentTileDataHigh >> 0) & 0x1) << 1) | ((this.currentTileDataLow >> 0) & 0x1);
+            // Palette is 0 or 1
+            var palette = (this.currentSprite.attributes >> 4) & 0x1;
+            var backgroundPriority = (this.currentSprite.attributes >> 7) & 0x1;
+            var tmpPixels = [
+                { colorIndex: color0, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color1, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color2, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color3, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color4, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color5, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color6, palette: palette, backgroundPriority: backgroundPriority },
+                { colorIndex: color7, palette: palette, backgroundPriority: backgroundPriority },
+            ];
+            var flipX = (this.currentSprite.attributes & 32) > 0;
+            if (flipX) {
+                tmpPixels = tmpPixels.reverse();
+            }
+            // if the sprite is too far on the left, we might have to drop a few pixels
+            if (this.currentSprite.xPosition < 8) {
+                tmpPixels = tmpPixels.splice(8 - this.currentSprite.xPosition);
+            }
+            (_a = this.spriteFifo).push.apply(_a, tmpPixels);
+            this.fetchingCompleted = true;
+        }
+        // Move on to next step
+        this.currentDotForStep++;
+        if (this.currentDotForStep === currentStep.dotCount) {
+            this.currentStepIndex++;
+            this.currentDotForStep = 0;
+        }
+    };
+    // Don't call this function without checking first that there is a sprite available
+    SpritePixelFetcher.prototype.startSpriteFetch = function (xPosition, currentLine) {
+        this.spriteFifo.length = 0;
+        this.currentLine = currentLine;
+        this.fetchingCompleted = false;
+        this.currentStepIndex = 0;
+        this.currentDotForStep = 0;
+        var objectsForLine = this.getPPUInfo().objectsForScanline;
+        // Pick the first sprite that matches the x coordinate and remove it from our list
+        for (var i = 0; i < objectsForLine.length; i++) {
+            if (objectsForLine[i].xPosition - 8 <= xPosition) {
+                this.currentSprite = objectsForLine[i];
+                // remove the element from the list so that we don't render it again
+                objectsForLine.splice(i, 1);
+                break;
+            }
+        }
+    };
+    SpritePixelFetcher.prototype.getFifo = function () {
+        return this.spriteFifo;
+    };
+    SpritePixelFetcher.prototype.spriteFetchCompleted = function () {
+        return this.fetchingCompleted;
+    };
+    SpritePixelFetcher.prototype.hasSpriteForXIndex = function (xIndex) {
+        var objectsForScanline = this.getPPUInfo().objectsForScanline;
+        var sprite = objectsForScanline.find(function (o) { return o.xPosition - 8 <= xIndex; });
+        return sprite !== undefined;
+    };
+    return SpritePixelFetcher;
+}());
+// Great explanation https://hacktix.github.io/GBEDG/ppu/
+var BackgroundWindowPixelFetcher = /** @class */ (function () {
+    /**
+     *
+     * @param vram
+     */
+    function BackgroundWindowPixelFetcher(vram, getPPUInfo) {
+        this.vram = vram;
+        this.getPPUInfo = getPPUInfo;
+        // pixels are only pushed the fifo is empty
+        this.backgroundWindowFifo = [];
+        this.steps = [
+            { name: "Get tile index", dotCount: 2 },
+            { name: "Get tile data low", dotCount: 2 },
+            { name: "Get tile data high", dotCount: 2 },
+            { name: "Sleep", dotCount: 2 },
+            { name: "Push", dotCount: 1 }, // I think this needs just a single dot but the fifo has to be empty for it to work
+        ];
+        // To keep track where we are in the step
+        this.currentStepIndex = 0;
+        this.currentDotForStep = 0;
+        // Y
+        this.currentLineIndex = 0;
+        // X
+        this.currentXIndex = 0;
+        // Data we're updating as we fetch
+        this.currentTileIndex = 0;
+        this.currentLineInTile = 0;
+        this.currentTileDataLow = 0x0;
+        this.currentTileDataHigh = 0x0;
+        this.currentScrollY = 0;
+        this.currentScrollX = 0;
+        this.currentWindowLine = 0;
+        // Once we hit a window coordinate, this flag will get flipped and we'll just render the window from now on.
+        this.renderingWindow = false;
+        // We need at least 8 elements for object merging at any time
+        this.minElementsInBackgroundFifo = 8;
+    }
+    BackgroundWindowPixelFetcher.prototype.reset = function (toLine, scxAtBeginningOfScanLine) {
+        this.backgroundWindowFifo.length = 0;
+        this.currentXIndex = 0;
+        this.currentScrollX = scxAtBeginningOfScanLine;
+        this.currentLineIndex = toLine;
+        this.currentStepIndex = 0;
+        this.currentDotForStep = 0;
+        var isNewFrame = toLine === 0;
+        if (isNewFrame) {
+            this.currentWindowLine = 0;
+        }
+        else {
+            // For simplicity we assume that we're moving line by line;
+            // if we were rendering the window before, we have to got to the next window line
+            if (this.renderingWindow) {
+                this.currentWindowLine++;
+            }
+        }
+        this.renderingWindow = false;
+    };
+    // Process:
+    // We have to fetch the background tile number (or window tile number if we have already hit the window).
+    // Once we entered the window region we empty the buffer and start rendering window pixels until the end.
+    // We only push pixels if the buffer is empty. Every tick, one pixel gets consumed, so we usually have to
+    // restart the push step twice.
+    // This class needs to actively shift pixels out so that it can stop shifting out once we have reached the window
+    // Each tile contains 16 bits, 8 bit low followed by 8 bit high
+    BackgroundWindowPixelFetcher.prototype.tick = function () {
+        var _a;
+        var currentStep = this.steps[this.currentStepIndex];
+        var pushStepDone = false;
+        var tileAddressingMode = (this.getPPUInfo().LCDC_ff40 >> 4) & 0x1;
+        var tileDataStart = tileAddressingMode === 0 ? 0x9000 - 0x8000 : 0x8000 - 0x8000;
+        if (currentStep.name === "Get tile index") {
+            // Look up tile for window
+            if (this.renderingWindow) {
+                this.lookupWindowTile(tileAddressingMode);
+            }
+            else {
+                this.lookupBackgroundTile(tileAddressingMode);
+            }
+            // Check for step name and dot count in every step so that we don't run computations twice.
+            // Get Tile Data Next
+        }
+        else if (currentStep.name === "Get tile data low" && this.currentDotForStep === 0) {
+            this.currentTileDataLow = this.vram[tileDataStart + this.currentTileIndex * 16 + this.currentLineInTile * 2];
+        }
+        else if (currentStep.name === "Get tile data high" && this.currentDotForStep === 0) {
+            this.currentTileDataHigh = this.vram[tileDataStart + this.currentTileIndex * 16 + this.currentLineInTile * 2 + 1];
+        }
+        else if (currentStep.name === "Sleep") {
+            // do nothing
+        }
+        else if (currentStep.name === "Push") {
+            var color0 = (((this.currentTileDataHigh >> 7) & 0x1) << 1) | ((this.currentTileDataLow >> 7) & 0x1);
+            var color1 = (((this.currentTileDataHigh >> 6) & 0x1) << 1) | ((this.currentTileDataLow >> 6) & 0x1);
+            var color2 = (((this.currentTileDataHigh >> 5) & 0x1) << 1) | ((this.currentTileDataLow >> 5) & 0x1);
+            var color3 = (((this.currentTileDataHigh >> 4) & 0x1) << 1) | ((this.currentTileDataLow >> 4) & 0x1);
+            var color4 = (((this.currentTileDataHigh >> 3) & 0x1) << 1) | ((this.currentTileDataLow >> 3) & 0x1);
+            var color5 = (((this.currentTileDataHigh >> 2) & 0x1) << 1) | ((this.currentTileDataLow >> 2) & 0x1);
+            var color6 = (((this.currentTileDataHigh >> 1) & 0x1) << 1) | ((this.currentTileDataLow >> 1) & 0x1);
+            var color7 = (((this.currentTileDataHigh >> 0) & 0x1) << 1) | ((this.currentTileDataLow >> 0) & 0x1);
+            var tmpPixels = [
+                { colorIndex: color0 },
+                { colorIndex: color1 },
+                { colorIndex: color2 },
+                { colorIndex: color3 },
+                { colorIndex: color4 },
+                { colorIndex: color5 },
+                { colorIndex: color6 },
+                { colorIndex: color7 },
+            ];
+            if (this.backgroundWindowFifo.length <= this.minElementsInBackgroundFifo) {
+                (_a = this.backgroundWindowFifo).push.apply(_a, tmpPixels);
+                pushStepDone = true;
+                this.currentXIndex = this.currentXIndex + 8;
+            }
+        }
+        // Maybe move on to next step
+        this.currentDotForStep++;
+        if (this.currentDotForStep === currentStep.dotCount && currentStep.name !== "Push") {
+            this.currentStepIndex++;
+            this.currentDotForStep = 0;
+        }
+        else if (currentStep.name === "Push" && pushStepDone) {
+            this.currentStepIndex = 0;
+            this.currentDotForStep = 0;
+        }
+    };
+    BackgroundWindowPixelFetcher.prototype.lookupWindowTile = function (tileAddressingMode) {
+        var windowMapArea = (this.getPPUInfo().LCDC_ff40 >> 6) & 0x1;
+        var mapStart = windowMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
+        // we're in one of 32x32 tiles
+        var pointerToTileIndex = Math.floor(this.currentWindowLine / 8) * 32 + Math.floor(this.currentXIndex / 8);
+        this.currentTileIndex = this.vram[mapStart + pointerToTileIndex];
+        this.currentLineInTile = this.currentWindowLine % 8;
+        if (tileAddressingMode === 0) {
+            this.currentTileIndex = (0, utils_1.signedFrom8Bits)(this.currentTileIndex);
+        }
+    };
+    BackgroundWindowPixelFetcher.prototype.lookupBackgroundTile = function (tileAddressingMode) {
+        // data area 0 = 8800–97FF; 1 = 8000–8FFF, keep in mind that 0 points to 0x8000
+        var bgMapArea = (this.getPPUInfo().LCDC_ff40 >> 3) & 0x1;
+        var tileMapStart = bgMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
+        // Scrolling is read on tile fetch
+        this.currentScrollY = this.getPPUInfo().SCY_ff42;
+        // we just started a new line after a reset
+        this.currentScrollX = (this.currentScrollX & 7) | (this.getPPUInfo().SCX_ff43 & 248);
+        // identify the tile number
+        // tile map contains tile index (tile maps are 32x32)
+        var mapIndex = tileMapStart +
+            Math.floor(((this.currentLineIndex + this.currentScrollY) % 256) / 8) * 32 +
+            Math.floor(((this.currentXIndex + this.currentScrollX) % 256) / 8);
+        this.currentTileIndex = this.vram[mapIndex];
+        if (tileAddressingMode === 0) {
+            this.currentTileIndex = (0, utils_1.signedFrom8Bits)(this.currentTileIndex);
+        }
+        this.currentLineInTile = (this.currentLineIndex + this.currentScrollY) % 8;
+    };
+    BackgroundWindowPixelFetcher.prototype.getFifo = function () {
+        return this.backgroundWindowFifo;
+    };
+    BackgroundWindowPixelFetcher.prototype.getCurrentScrollX = function () {
+        return this.currentScrollX;
+    };
+    BackgroundWindowPixelFetcher.prototype.isFetchingWindow = function () {
+        return this.renderingWindow;
+    };
+    BackgroundWindowPixelFetcher.prototype.switchToWindowRendering = function () {
+        this.renderingWindow = true;
+        this.backgroundWindowFifo.length = 0;
+        this.currentXIndex = 0;
+        this.currentStepIndex = 0;
+        this.currentDotForStep = 0;
+    };
+    return BackgroundWindowPixelFetcher;
+}());
+var RenderPipeline = /** @class */ (function () {
+    /**
+     *
+     * @param vram
+     * @param sendToLCD Called for each pixel, so 160x144 times
+     */
+    function RenderPipeline(backgroundPixelFetcher, spritePixelFetcher, getPPUInfo, sendToLCD, lcdDebugRenderer) {
+        this.backgroundPixelFetcher = backgroundPixelFetcher;
+        this.spritePixelFetcher = spritePixelFetcher;
+        this.getPPUInfo = getPPUInfo;
+        this.sendToLCD = sendToLCD;
+        this.lcdDebugRenderer = lcdDebugRenderer;
         // Toy blue
         this.colors = [
             [174, 255, 255, 255],
@@ -6608,577 +7159,480 @@ var PPUImpl = /** @class */ (function () {
             [16, 173, 173, 255],
             [76, 17, 18, 255],
         ];
-        // // Toy orange
-        // private colors: number[][] = [
-        //     [252,206,130,255],
-        //     [250,178, 43,255],
-        //     [226,151,29,255],
-        //     [76,17,18,255],
-        // ];
-        // 0xFF47 background color palette
-        this.ff47 = 0x00;
-        // We'll keep a copy with the actual colors
-        this.backgroundColorPalette = [];
-        // 0xFF48 OBP0 object palette 0
-        this.objectColorPalette0 = [];
-        this.ff48 = 0x00;
-        // 0xFF49 OBP1 object palette 1
-        this.objectColorPalette1 = [];
-        this.ff49 = 0x00;
-        // FF4A WY
-        this.WY = 0;
-        // FF4B WX
-        this.WX = 0;
-        this.tickCount = 0;
-        this.currentMode = "Mode2";
-        // For simplicity, we just maintain our own version of the 32x32 background pixel data
-        // [y][x] => pixel color id
-        this.backgroundColorIdBuffer = [];
-        // Same for window
-        this.windowColorIdBuffer = [];
-        this.framePixels = [];
-        // Sum of ticks for each mode...
-        // totalTicksPerLine = 80 + 172 + 204
-        this.totalTicksPerLine = 456;
-        this.lineTick = 0;
-        this.tileCanvasContext = tileCanvas.getContext("2d", {
-            willReadFrequently: true,
-        });
-        this.lcdCanvasContext = lcdCanvas.getContext("2d", {
-            willReadFrequently: true,
-        });
-        this.backgroundCanvasContext = backgroundCanvas.getContext("2d", {
-            willReadFrequently: true,
-        });
-        this.lcdCanvasContext.imageSmoothingEnabled = false;
-        this.drawTiles();
-        this.lcdCanvasData = this.lcdCanvasContext.getImageData(0, 0, this.lcdCanvas.width, this.lcdCanvas.height);
+        this.pixelsSentToLCDForCurrentLine = 0;
+        this.isStartOfScanline = true;
+        this.discardPixelsCount = 0;
+        this.waitingForSpriteFetch = false;
+        this.currentLine = 0;
+        // We need at least 8 elements for object merging at any time
+        this.minElementsInBackgroundFifo = 8;
     }
-    PPUImpl.prototype.setLYC = function (value) {
-        this.LYC = value & 0xff;
-        this.checkLyLycInterrupt();
-    };
-    PPUImpl.prototype.getLYC = function () {
-        return this.LYC;
-    };
-    PPUImpl.prototype.tick = function () {
-        // we don't do anything if the display is switched off
-        if (!this.isDisplayOn()) {
+    RenderPipeline.prototype.tick = function () {
+        // check for objects
+        // in the beginning of a line we might have to wait until the background
+        // buffer got filled up
+        // Not sure if this is the right behaviour but we'll let the buffer fill up first
+        // Check if we need to flip to window rendering
+        var windowEnabled = ((this.getPPUInfo().LCDC_ff40 >> 5) & 0x1) === 1;
+        if (windowEnabled &&
+            this.currentLine >= this.getPPUInfo().WY_ff4a &&
+            // position is defined as + 7, https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
+            this.pixelsSentToLCDForCurrentLine >= this.getPPUInfo().WX_ff4b - 7 &&
+            !this.backgroundPixelFetcher.isFetchingWindow()) {
+            debugger;
+            this.backgroundPixelFetcher.switchToWindowRendering();
+        }
+        if (this.isStartOfScanline) {
+            // The background fetcher reads the scroll x repeatedly
+            // but only updates the last 3 bit as part of the first fetch.
+            // but only if we're not rendering the window
+            if (!this.backgroundPixelFetcher.isFetchingWindow()) {
+                this.discardPixelsCount = this.backgroundPixelFetcher.getCurrentScrollX() % 8;
+            }
+            else if (this.getPPUInfo().WX_ff4b < 7 && this.backgroundPixelFetcher.isFetchingWindow()) {
+                // We're fetching the window and the window is slightly moved left off screen
+                // so that we have to drop some more pixels.
+                this.discardPixelsCount = 7 - this.getPPUInfo().WX_ff4b;
+            }
+            this.isStartOfScanline = false;
+        }
+        // Always make sure that we have enough elements in our background buffer
+        if (this.backgroundPixelFetcher.getFifo().length < this.minElementsInBackgroundFifo) {
+            this.backgroundPixelFetcher.tick();
+            if (this.backgroundPixelFetcher.getFifo().length >= this.discardPixelsCount) {
+                for (var i = 0; i < this.discardPixelsCount; i++) {
+                    this.backgroundPixelFetcher.getFifo().shift();
+                    this.discardPixelsCount--;
+                }
+            }
             return;
         }
-        var modeBefore = this.currentMode;
-        // We just draw the image once
-        if (this.LY === 144 && this.lineTick === 80) {
-            this.lcdCanvasContext.putImageData(this.lcdCanvasData, 0, 0);
+        if (this.backgroundPixelFetcher.getFifo().length >= this.minElementsInBackgroundFifo &&
+            this.spritePixelFetcher.hasSpriteForXIndex(this.pixelsSentToLCDForCurrentLine) &&
+            !this.waitingForSpriteFetch) {
+            this.waitingForSpriteFetch = true;
+            this.spritePixelFetcher.startSpriteFetch(this.pixelsSentToLCDForCurrentLine, this.currentLine);
         }
-        if (this.LY < 144 && this.lineTick < 80) {
-            this.currentMode = "Mode2";
-        }
-        else if (this.LY < 144 &&
-            this.lineTick >= 80 &&
-            this.lineTick < 172 + 80) {
-            // For now we just draw the entire line when we enter mode 3
-            if (this.lineTick === 80) {
-                this.drawCurrentLine(this.lcdCanvasData);
+        if (this.waitingForSpriteFetch) {
+            if (this.spritePixelFetcher.spriteFetchCompleted()) {
+                this.waitingForSpriteFetch = false;
+                // Merge sprite into background buffer if objects are still enabled
+                var objectsEnabled = ((this.getPPUInfo().LCDC_ff40 >> 1) & 0x1) === 1;
+                if (objectsEnabled) {
+                    this.mergeSpriteIntoBackground();
+                }
+                // We return early here since there might be another sprite coming
+                return;
             }
-            this.currentMode = "Mode3";
+            else {
+                // We need to wait for sprite fetch completion
+                this.spritePixelFetcher.tick();
+                return;
+            }
         }
-        else if (this.LY < 144 && this.lineTick >= 172 + 80) {
-            this.currentMode = "Mode0";
-        }
-        else if (this.LY >= 144) {
-            this.currentMode = "Mode1";
-        }
-        if (this.LY === this.LYC) {
-            this.STAT = this.STAT | 4;
-        }
-        else {
-            this.STAT = this.STAT & 251;
-        }
-        // update mode on stat
-        switch (this.currentMode) {
-            case "Mode0":
-                this.STAT = (this.STAT & 252) | 0x0;
-                break;
-            case "Mode1":
-                this.STAT = (this.STAT & 252) | 0x1;
-                break;
-            case "Mode2":
-                this.STAT = (this.STAT & 252) | 0x2;
-                break;
-            case "Mode3":
-                this.STAT = (this.STAT & 252) | 0x3;
-                break;
-        }
-        // Todo: this needs refactroring since the background buffer tile index might
-        // change during rendering. We dont' support that at this point.
-        if (this.LY === 153 && this.lineTick === this.totalTicksPerLine - 1) {
-            this.updateBackgroundPixelBuffer();
-            this.updateWindowPixelBuffer();
-        }
-        var statMode;
-        if (this.STAT & 8) {
-            statMode = 0;
-        }
-        else if (this.STAT & 16) {
-            statMode = 1;
-        }
-        else if (this.STAT & 32) {
-            statMode = 2;
-        }
-        if (statMode === 0 &&
-            this.currentMode === "Mode0" &&
-            modeBefore !== "Mode0") {
-            var currentInterruptFlags = this.interrupts.getInterruptFlag();
-            this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
-        }
-        else if (statMode === 1 &&
-            this.currentMode === "Mode1" &&
-            modeBefore !== "Mode1") {
-            var currentInterruptFlags = this.interrupts.getInterruptFlag();
-            this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
-        }
-        else if (statMode === 2 &&
-            this.currentMode === "Mode2" &&
-            modeBefore !== "Mode2") {
-            var currentInterruptFlags = this.interrupts.getInterruptFlag();
-            this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
-        }
-        if (this.lineTick === 0) {
-            this.checkLyLycInterrupt();
-        }
-        this.lineTick++;
-        this.tickCount++;
-        if (this.lineTick >= this.totalTicksPerLine) {
-            this.lineTick = 0;
-            this.LY = (this.LY + 1) % 154;
-        }
-        if (this.LY === 144 && this.lineTick === 0) {
-            // VBLANK interrupt
-            var currentInterruptFlags = this.interrupts.getInterruptFlag();
-            this.interrupts.setInterruptFlag(currentInterruptFlags | 0x1);
-            ///!!!! Remove this and figure out interrupt routine length
-            // this.viewportX = 0; // dirty hack because interrupt timing isn't 100% correct
-        }
+        // Fetch
+        this.backgroundPixelFetcher.tick();
+        // Send
+        this.maybeSendPixelInFifoToLCD();
     };
-    PPUImpl.prototype.checkLyLycInterrupt = function () {
-        if (this.LY === this.LYC && ((this.STAT >> 2) & 0x1) === 0x1) {
-            this.STAT = this.STAT | 4;
-            var currentInterruptFlags = this.interrupts.getInterruptFlag();
-            this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
-        }
-    };
-    PPUImpl.prototype.clearLCD = function () {
-        if (this.isDisplayOn()) {
-            this.lcdCanvasContext.fillStyle = "white";
-        }
-        else {
-            this.lcdCanvasContext.fillStyle = "black";
-        }
-        this.lcdCanvasContext.fillRect(0, 0, 160, 144);
-    };
-    PPUImpl.prototype.drawCurrentLine = function (lcdCanvasData) {
-        var line = this.LY;
-        ///// Background
-        // if (this.LY < 15 && this.viewportX > 0) {
-        //     debugger;
-        // }
-        // We've got all our pixel data in a pixel buffer
-        var scrolledLine = (line + this.viewportY) % (32 * 8); // wrap after the 32 tiles
-        var backgroundPixels = this.backgroundColorIdBuffer[scrolledLine];
-        var enableBackground = (this.LCDC & 0x1) === 1;
-        if (line < 144 && backgroundPixels && enableBackground) {
-            for (var x = 0; x < 160; x++) {
-                var scrolledX = (x + this.viewportX) % (32 * 8);
-                if (backgroundPixels[scrolledX] !== undefined) {
-                    this.drawPixel(lcdCanvasData, this.lcdCanvas.width, x, line, this.colors[this.backgroundColorPalette[backgroundPixels[scrolledX]]]);
-                }
-            }
-        }
-        //// Window
-        var enableWindow = (this.LCDC & 0x1) === 1 && ((this.LCDC >> 5) & 0x1) === 1;
-        if (enableWindow && line >= this.WY) {
-            var windowLine = line - this.WY;
-            var windowPixels = this.windowColorIdBuffer[windowLine];
-            if (line < 144 && windowPixels) {
-                for (var x = 0; x < 160; x++) {
-                    var windowX = x - (this.WX - 7); // +-7?
-                    if (windowX >= 0 && windowPixels[windowX] !== undefined) {
-                        this.drawPixel(lcdCanvasData, this.lcdCanvas.width, x, line, this.colors[this.backgroundColorPalette[windowPixels[windowX]]]);
-                    }
-                }
-            }
-        }
-        ///// Objects
-        // We can just draw the object pixels on top for now
-        // Find the objects we need to draw
-        // 4 Bytes per object
-        // Byte 0: Y position, 16 is top
-        // Byte 1: X position, 8 is right
-        // Byte 2: Tile index
-        // Byte 3 Attribute flags
-        var tileHeight = ((this.LCDC >> 2) & 0x1) === 0 ? 8 : 16;
-        for (var i = 0; i < 40 * 4; i = i + 4) {
-            var yPostion = this.oam[i];
-            var xPosition = this.oam[i + 1];
-            if (line >= yPostion - 16 && line < yPostion - 16 + tileHeight) {
-                var tileIndex = this.oam[i + 2];
-                var attributes = this.oam[i + 3];
-                var priority = (attributes >> 7) & 0x1;
-                var flipX = (attributes & 32) > 0;
-                var flipY = (attributes & 64) > 0;
-                var palette = ((attributes >> 4) & 0x1) === 0
-                    ? this.objectColorPalette0
-                    : this.objectColorPalette1;
-                var lineInTile = line - (yPostion - 16);
-                if (flipY) {
-                    lineInTile = tileHeight - 1 - lineInTile;
-                }
-                // draw the line for the tile
-                var lineLeast = this.vram[tileIndex * 16 + lineInTile * 2];
-                var lineMost = this.vram[tileIndex * 16 + lineInTile * 2 + 1];
-                for (var j = 0; j < 8; j++) {
-                    var pixelColorId = ((lineLeast >> (7 - j)) & 0x1) +
-                        (((lineMost >> (7 - j)) & 0x1) << 1);
-                    // don't draw outside of the screen
-                    if (j < 160 && line < 144 && pixelColorId !== 0) {
-                        // dont draw transparent pixels
-                        // double check object color indexing + selected pallete
-                        var xPos = flipX ? xPosition - 8 + (7 - j) : xPosition - 8 + j;
-                        // these can exceed the window and draw pixel doesnt fail this yet
-                        var scrolledX = (xPos + this.viewportX) % (32 * 8);
-                        var drawOverBackground = priority === 0 || backgroundPixels[scrolledX] === 0;
-                        if (xPos >= 0 && xPos < 160 && drawOverBackground) {
-                            this.drawPixel(lcdCanvasData, this.lcdCanvas.width, xPos, line, this.colors[palette[pixelColorId - 1]]);
-                        }
-                    }
-                }
-            }
-        }
-        // for debugging visuals we'll add the pixels of our frame into a buffer and draw it later
-        // because of mid frame scrolling, we'll have to do this here
-        //  left border line by line
-        this.framePixels.push([
-            this.getViewportX() % 256,
-            (line + this.getViewportY()) % 256,
-        ]);
-        // right boarder line by line
-        this.framePixels.push([
-            (this.getViewportX() + 160) % 256,
-            (line + this.getViewportY()) % 256,
-        ]);
-        // top and bottom bars
-        if (line === 0 || line === 143) {
-            for (var x = 0; x < 160; x++) {
-                this.framePixels.push([
-                    (x + this.getViewportX()) % 256,
-                    (line + this.getViewportY()) % 256,
-                ]);
+    RenderPipeline.prototype.mergeSpriteIntoBackground = function () {
+        var spriteFifo = this.spritePixelFetcher.getFifo();
+        var backgroundFifo = this.backgroundPixelFetcher.getFifo();
+        // if the sprites are one the left side of the screen the sprite fifo might be a bit shorter
+        for (var i = 0; i < spriteFifo.length; i++) {
+            // 3 conditions:
+            // 1. We don't overwrite pixels that have already been overwritten by an earlier sprite
+            // 2. We don't overwrite if the sprite pixel is transparent
+            // 3. If the sprite priority is 1, then bg/windows colors 1-3 are written over this object
+            if (!backgroundFifo[i].overwrittenBySprite &&
+                spriteFifo[i].colorIndex > 0 &&
+                (spriteFifo[i].backgroundPriority === 0 || backgroundFifo[i].colorIndex === 0)) {
+                backgroundFifo[i] = {
+                    colorIndex: spriteFifo[i].colorIndex,
+                    palette: spriteFifo[i].palette,
+                    overwrittenBySprite: true,
+                };
             }
         }
     };
-    PPUImpl.prototype.updateWindowPixelBuffer = function () {
-        // window should usually have it's own line counter but we'll ignore this for now
-        var windowMapArea = (this.LCDC >> 6) & 0x1;
-        var mapStart = windowMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
-        // data area 0 = 8800–97FF; 1 = 8000–8FFF, keep in mind that 0 points to 0x8000
-        var tileAddressingMode = (this.LCDC >> 4) & 0x1;
-        var tileDataStart = tileAddressingMode === 0 ? 0x9000 - 0x8000 : 0x8000 - 0x8000;
-        // 32x32 tiles
-        for (var tileYIndex = 0; tileYIndex < 32; tileYIndex++) {
-            for (var tileXIndex = 0; tileXIndex < 32; tileXIndex++) {
-                var tileIndex = tileYIndex * 32 + tileXIndex;
-                var tileId = this.vram[mapStart + tileIndex]; // 1 byte per tile, 8 pixel height
-                if (tileAddressingMode === 0) {
-                    tileId = (0, utils_1.signedFrom8Bits)(tileId);
-                }
-                if (tileId != undefined) {
-                    // 8x8 tiles
-                    for (var lineInTile = 0; lineInTile < 8; lineInTile++) {
-                        // 16 bytes per tile, 2 bytes per line
-                        var lineLeast = this.vram[tileDataStart + tileId * 16 + lineInTile * 2];
-                        var lineMost = this.vram[tileDataStart + tileId * 16 + lineInTile * 2 + 1];
-                        var xOffset = tileXIndex * 8;
-                        var line = tileYIndex * 8 + lineInTile;
-                        for (var j = 0; j < 8; j++) {
-                            var pixelColorId = ((lineLeast >> (7 - j)) & 0x1) +
-                                (((lineMost >> (7 - j)) & 0x1) << 1);
-                            // double check if they use the same palette
-                            if (this.colors[this.backgroundColorPalette[pixelColorId]] !=
-                                undefined) {
-                                if (this.windowColorIdBuffer[line] === undefined) {
-                                    this.windowColorIdBuffer[line] = [];
-                                }
-                                this.windowColorIdBuffer[line][j + xOffset] = pixelColorId;
-                            }
-                        }
-                    }
-                }
+    RenderPipeline.prototype.reset = function (toLine, scxAtBeginningOfScanLine) {
+        this.currentLine = toLine;
+        this.isStartOfScanline = true;
+        this.backgroundPixelFetcher.reset(toLine, scxAtBeginningOfScanLine);
+    };
+    RenderPipeline.prototype.maybeSendPixelInFifoToLCD = function () {
+        if (this.backgroundPixelFetcher.getFifo().length <= this.minElementsInBackgroundFifo) {
+            // We don't have enough pixels yet
+            return;
+        }
+        if (this.backgroundPixelFetcher.getFifo().length > this.minElementsInBackgroundFifo) {
+            var pixel = this.backgroundPixelFetcher.getFifo().shift();
+            // discard pixels we don't need
+            if (this.discardPixelsCount > 0) {
+                this.discardPixelsCount--;
+                return;
             }
+            var ppuInfo = this.getPPUInfo();
+            // if this is a background pixel and the background isn't enabled then we just sent out a white pixel
+            if (!(pixel === null || pixel === void 0 ? void 0 : pixel.overwrittenBySprite) && (ppuInfo.LCDC_ff40 & 0x1) === 0) {
+                this.sendToLCD(this.colors[0]);
+            }
+            else if ((pixel === null || pixel === void 0 ? void 0 : pixel.overwrittenBySprite) === true) {
+                var obj0ColorId0 = 0; // lower 2 bits ignored for objects, it's transparent for object
+                var obj0ColorId1 = (ppuInfo.OBP0_ff48 >> 2) & 0x03;
+                var obj0ColorId2 = (ppuInfo.OBP0_ff48 >> 4) & 0x03;
+                var obj0ColorId3 = (ppuInfo.OBP0_ff48 >> 6) & 0x03;
+                var obj0ColorPalette = [obj0ColorId0, obj0ColorId1, obj0ColorId2, obj0ColorId3];
+                var obj1ColorId0 = 0; // lower 2 bits ignored for objects, it's transparent for objects
+                var obj1ColorId1 = (ppuInfo.OBP1_ff49 >> 2) & 0x03;
+                var obj1ColorId2 = (ppuInfo.OBP1_ff49 >> 4) & 0x03;
+                var obj1ColorId3 = (ppuInfo.OBP1_ff49 >> 6) & 0x03;
+                var obj1ColorPalette = [obj1ColorId0, obj1ColorId1, obj1ColorId2, obj1ColorId3];
+                var objPalette = pixel.palette === 0 ? obj0ColorPalette : obj1ColorPalette;
+                this.sendToLCD(this.colors[objPalette[pixel.colorIndex]]);
+            }
+            else {
+                var bgColorId0 = ppuInfo.BGP_ff47 & 0x03;
+                var bgColorId1 = (ppuInfo.BGP_ff47 >> 2) & 0x03;
+                var bgColorId2 = (ppuInfo.BGP_ff47 >> 4) & 0x03;
+                var bgColorId3 = (ppuInfo.BGP_ff47 >> 6) & 0x03;
+                var backgroundColorPalette = [bgColorId0, bgColorId1, bgColorId2, bgColorId3];
+                this.sendToLCD(this.colors[backgroundColorPalette[pixel.colorIndex]]);
+            }
+            if (ppuInfo.debugEnabled) {
+                this.maybeDrawDebugScrollFrame();
+            }
+            this.pixelsSentToLCDForCurrentLine = (this.pixelsSentToLCDForCurrentLine + 1) % 160;
         }
     };
-    PPUImpl.prototype.updateBackgroundPixelBuffer = function () {
+    RenderPipeline.prototype.maybeDrawDebugScrollFrame = function () {
+        var scrollX = this.getPPUInfo().SCX_ff43;
+        var scrollY = this.getPPUInfo().SCY_ff42;
+        // Top
+        if (this.currentLine === 0) {
+            this.lcdDebugRenderer.drawScrollBorderPixel((scrollX + this.pixelsSentToLCDForCurrentLine) % 256, scrollY);
+        }
+        // Bottom
+        if (this.currentLine === 143) {
+            this.lcdDebugRenderer.drawScrollBorderPixel((scrollX + this.pixelsSentToLCDForCurrentLine) % 256, (scrollY + 144) % 256);
+        }
+        // Left and right border
+        this.lcdDebugRenderer.drawScrollBorderPixel(scrollX, (this.currentLine + scrollY) % 256);
+        this.lcdDebugRenderer.drawScrollBorderPixel((scrollX + 160) % 256, (this.currentLine + scrollY) % 256);
+    };
+    return RenderPipeline;
+}());
+/**
+ * Simple PPU Impl with a few debugging infos.
+ * Known issues:
+ * -> tileAddressingMode = (this.LCDC >> 4) & 0x1; for background/window is not updated between lines which breaks layout for some games.
+ */
+var PPUImpl = /** @class */ (function () {
+    function PPUImpl(lcdCanvas, tileCanvas, backgroundCanvas, interrupts) {
         var _this = this;
-        var bgMapArea = (this.LCDC >> 3) & 0x1;
-        var mapStart = bgMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
-        // data area 0 = 8800–97FF; 1 = 8000–8FFF, keep in mind that 0 points to 0x8000
-        var tileAddressingMode = (this.LCDC >> 4) & 0x1;
-        var tileDataStart = tileAddressingMode === 0 ? 0x9000 - 0x8000 : 0x8000 - 0x8000;
-        // 32x32 tiles
-        for (var tileYIndex = 0; tileYIndex < 32; tileYIndex++) {
-            for (var tileXIndex = 0; tileXIndex < 32; tileXIndex++) {
-                var tileIndex = tileYIndex * 32 + tileXIndex;
-                var tileId = this.vram[mapStart + tileIndex]; // 1 byte per tile, 8 pixel height
-                if (tileAddressingMode === 0) {
-                    tileId = (0, utils_1.signedFrom8Bits)(tileId);
-                }
-                if (tileId != undefined) {
-                    // 8x8 tiles
-                    for (var lineInTile = 0; lineInTile < 8; lineInTile++) {
-                        // 16 bytes per tile, 2 bytes per line
-                        var lineLeast = this.vram[tileDataStart + tileId * 16 + lineInTile * 2];
-                        var lineMost = this.vram[tileDataStart + tileId * 16 + lineInTile * 2 + 1];
-                        var xOffset = tileXIndex * 8;
-                        var line = tileYIndex * 8 + lineInTile;
-                        for (var j = 0; j < 8; j++) {
-                            var pixelColorId = ((lineLeast >> (7 - j)) & 0x1) +
-                                (((lineMost >> (7 - j)) & 0x1) << 1);
-                            if (this.colors[this.backgroundColorPalette[pixelColorId]] !=
-                                undefined) {
-                                if (this.backgroundColorIdBuffer[line] === undefined) {
-                                    this.backgroundColorIdBuffer[line] = [];
-                                }
-                                this.backgroundColorIdBuffer[line][j + xOffset] = pixelColorId;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // does not work yet for some reason
-        var backgroundCanvasData = this.backgroundCanvasContext.getImageData(0, 0, this.backgroundCanvas.width, this.backgroundCanvas.height);
-        // debug buffer:
-        for (var y = 0; y < 256; y++) {
-            for (var x = 0; x < 256; x++) {
-                if (this.backgroundColorIdBuffer != undefined &&
-                    this.backgroundColorIdBuffer[y] != undefined) {
-                    var pixelColorId = this.backgroundColorIdBuffer[y][x];
-                    if (pixelColorId !== undefined) {
-                        this.drawPixel(backgroundCanvasData, 256, x, y, this.colors[this.backgroundColorPalette[pixelColorId]]);
-                    }
-                }
-            }
-        }
-        // add the frame around our background pixel data
-        // pixels for frame are filled in draw line since we need to keep track of scrolling
-        // (all just done for debugging view)
-        var frameColor = [200, 0, 0, 255];
-        this.framePixels.forEach(function (pixel) {
-            // we'll draw it with a 2 px width
-            _this.drawPixel(backgroundCanvasData, 256, pixel[0], pixel[1], frameColor);
-            _this.drawPixel(backgroundCanvasData, 256, pixel[0] + 1, pixel[1], frameColor);
-            _this.drawPixel(backgroundCanvasData, 256, pixel[0], pixel[1] + 1, frameColor);
-            _this.drawPixel(backgroundCanvasData, 256, pixel[0] + 1, pixel[1] + 1, frameColor);
+        this.lcdCanvas = lcdCanvas;
+        this.tileCanvas = tileCanvas;
+        this.backgroundCanvas = backgroundCanvas;
+        this.interrupts = interrupts;
+        // VRAM 8000-9FFF, 8192 bytes
+        this.vram = [];
+        // $FE00-FE9F, OAM, holds 160 bytes of object attributes, 40 entries, 4 bytes each
+        this.oam = [];
+        // PPU modes, 2 = OAM scan, 3 drawing pixels, 0 hblank, 1 vblank
+        this.mode = 2;
+        this.objectsForScanline = [];
+        // LCDC, can be modified mid scan line
+        this.LCDC_ff40 = 0x91;
+        // STAT
+        this.STAT_ff41 = 0;
+        // SCY
+        this.SCY_ff42 = 0;
+        // SCX
+        this.SCX_ff43 = 0;
+        // LY read only
+        this.LY_ff44 = 0;
+        // LYC
+        this.LYC_ff45 = 0;
+        // BGP BG pallette data
+        this.BGP_ff47 = 0;
+        // OBP0, lower two bits ignored, color index 0 is transparent
+        this.OBP0_ff48 = 0;
+        // OBP1, lower two bits ignored, color index 0 is transparent
+        this.OBP1_ff49 = 0;
+        // We just use this to keep track of the current coordinates on the screen
+        // 160x144
+        this.x = 0;
+        this.y = 0;
+        this.allPixelsGeneratedForLine = false;
+        // our current dot position
+        this.dots = 0;
+        // we're keeping track of the penalty in mode 3
+        this.penalty = 0;
+        // WY
+        this.WY_ff4a = 0;
+        // WX
+        this.WX_ff4b = 0;
+        // ppu is enabled on startup
+        this.ppuEnabled = true;
+        this.isFirstFrameAfterPPUEnabled = false;
+        // Let's just keep this running in the background.
+        // For slow machines we might want to turn this off.
+        this.debugRenderingEnabled = true;
+        this.scxAtBeginningOfScanLine = 0x0;
+        var getPPUInfoForRenderPipeline = function () { return ({
+            LCDC_ff40: _this.LCDC_ff40,
+            SCY_ff42: _this.SCY_ff42,
+            SCX_ff43: _this.SCX_ff43,
+            BGP_ff47: _this.BGP_ff47,
+            OBP0_ff48: _this.OBP0_ff48,
+            OBP1_ff49: _this.OBP1_ff49,
+            WY_ff4a: _this.WY_ff4a,
+            WX_ff4b: _this.WX_ff4b,
+            objectsForScanline: _this.objectsForScanline,
+            debugEnabled: _this.debugRenderingEnabled,
+        }); };
+        this.debugRenderer = new lcddebug_1.LcdDebugRenderer(tileCanvas, backgroundCanvas, this.vram, getPPUInfoForRenderPipeline);
+        var lcdCanvasContext = lcdCanvas.getContext("2d", {
+            willReadFrequently: true,
         });
-        this.framePixels = [];
-        this.backgroundCanvasContext.putImageData(backgroundCanvasData, 0, 0);
-    };
-    PPUImpl.prototype.drawTiles = function () {
-        var _this = this;
-        this.tileCanvasContext.fillStyle = "white";
-        this.tileCanvasContext.fillRect(0, 0, 128, 192);
-        // 3 x 128 tiles (3 blocks)
-        for (var i = 0; i < 3 * 128; i++) {
-            this.drawTile(i);
+        var lcdCanvasData = lcdCanvasContext.getImageData(0, 0, this.lcdCanvas.width, this.lcdCanvas.height);
+        var sendPixelToLCD = function (rgba) {
+            // draw
+            lcdutils_1.LcdUtils.drawPixel(lcdCanvasData, 160, _this.x, _this.y, rgba);
+            // update coords
+            _this.x = (_this.x + 1) % 160;
+            // new line
+            if (_this.x === 0) {
+                _this.allPixelsGeneratedForLine = true;
+                _this.y = (_this.y + 1) % 144;
+                if (_this.y === 0) {
+                    // we're done, we can update the buffer on the canvas if this is not the first frame after a recent switch on
+                    if (_this.isFirstFrameAfterPPUEnabled) {
+                        // do nothing, we should actually render a white frame
+                        _this.isFirstFrameAfterPPUEnabled = false;
+                    }
+                    else {
+                        lcdCanvasContext.putImageData(lcdCanvasData, 0, 0);
+                    }
+                }
+            }
+        };
+        var backgroundWindowPixelFetcher = new BackgroundWindowPixelFetcher(this.vram, getPPUInfoForRenderPipeline);
+        var spritePixelFetcher = new SpritePixelFetcher(this.vram, getPPUInfoForRenderPipeline);
+        this.renderPipeline = new RenderPipeline(backgroundWindowPixelFetcher, spritePixelFetcher, getPPUInfoForRenderPipeline, sendPixelToLCD, this.debugRenderer);
+    }
+    PPUImpl.prototype.tick = function () {
+        if (!this.ppuEnabled) {
+            return;
         }
-        if (!this.killed) {
-            setTimeout(function () { return _this.drawTiles(); }, 20);
-        }
-    };
-    // Just used for debugging
-    PPUImpl.prototype.drawTile = function (tileNo) {
-        var tileCanvasData = this.tileCanvasContext.getImageData(0, 0, this.tileCanvas.width, this.tileCanvas.height);
-        // 16 bytes per tile, 2 bytes per line, first byte least significant, second byte most significant
-        for (var line = 0; line < 8; line++) {
-            var xOffset = (tileNo % 16) * 8;
-            var yOffset = Math.floor(tileNo / 16) * 8;
-            var lineLeast = this.vram[2 * line + tileNo * 16];
-            var lineMost = this.vram[2 * line + 1 + tileNo * 16];
-            for (var i = 0; i < 8; i++) {
-                var pixelColorId = ((lineLeast >> (7 - i)) & 0x1) + (((lineMost >> (7 - i)) & 0x1) << 1);
-                this.drawPixel(tileCanvasData, this.tileCanvas.width, i + xOffset, line + yOffset, this.colors[pixelColorId]);
+        // modes changes:
+        // mode 2 (oam scan) - mode 3 (drawing) - mode 0 (hblank)
+        // mode 1 (vblank)
+        if (this.dots === 0 && this.mode !== 1) {
+            // mode 2
+            this.mode = 2;
+            this.scxAtBeginningOfScanLine = this.SCX_ff43;
+            // reset scanned objects
+            this.objectsForScanline.length = 0;
+            // Maybe fire STAT interrupt for mode 2
+            if (((this.STAT_ff41 >> 5) & 1) === 1) {
+                var currentInterruptFlags = this.interrupts.getInterruptFlag();
+                this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
             }
         }
-        this.tileCanvasContext.putImageData(tileCanvasData, 0, 0);
-    };
-    PPUImpl.prototype.drawPixel = function (canvasData, canvasWidth, x, y, color) {
-        var index = (x + y * canvasWidth) * 4;
-        canvasData.data[index + 0] = color[0];
-        canvasData.data[index + 1] = color[1];
-        canvasData.data[index + 2] = color[2];
-        canvasData.data[index + 3] = color[3];
-    };
-    // gameboy resolution is 160x144
-    PPUImpl.prototype.setViewportY = function (value) {
-        this.viewportY = value;
-    };
-    PPUImpl.prototype.getViewportY = function () {
-        return this.viewportY;
-    };
-    PPUImpl.prototype.setViewportX = function (value) {
-        this.viewportX = value;
-    };
-    PPUImpl.prototype.getViewportX = function () {
-        return this.viewportX;
-    };
-    PPUImpl.prototype.setWindowYPosition = function (value) {
-        this.WY = value;
-    };
-    PPUImpl.prototype.getWindowYPosition = function () {
-        return this.WY;
-    };
-    PPUImpl.prototype.setWindowXPosition = function (value) {
-        this.WX = value;
-    };
-    PPUImpl.prototype.getWindowXPosition = function () {
-        return this.WX;
-    };
-    PPUImpl.prototype.setStatusRegister = function (value) {
-        this.STAT = value & 0xff;
-        var currentInterruptFlags = this.interrupts.getInterruptFlag();
-        this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
-    };
-    PPUImpl.prototype.getStatusRegister = function () {
-        return this.STAT;
-    };
-    PPUImpl.prototype.getLCDControlerRegister = function () {
-        return this.LCDC & 0xff;
-    };
-    PPUImpl.prototype.isDisplayOn = function () {
-        return ((this.LCDC >> 7) & 1) === 1;
-    };
-    PPUImpl.prototype.setLCDControlerRegister = function (value) {
-        if (((this.LCDC >> 7) & 1) === 1 && ((value >> 7) & 1) === 0) {
-            // display switched off
-            this.currentMode = "Mode0";
-            this.LY = 0;
-            this.lineTick = 0;
-            this.STAT = this.STAT & 252;
-            this.LCDC = this.LCDC & 252;
+        if (this.dots === 80 && this.mode !== 1) {
+            this.renderPipeline.reset(this.LY_ff44, this.SCX_ff43);
+            this.mode = 3;
+            this.x = 0;
         }
-        if (((this.LCDC >> 7) & 1) === 0 && ((value >> 7) & 1) === 1) {
-            // display switched on
-            this.checkLyLycInterrupt();
+        if (this.allPixelsGeneratedForLine && this.mode !== 1) {
+            this.mode = 0;
+            this.allPixelsGeneratedForLine = false;
+            // Maybe fire STAT interrupt for mode 0
+            if (((this.STAT_ff41 >> 3) & 1) === 1) {
+                var currentInterruptFlags = this.interrupts.getInterruptFlag();
+                this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
+            }
         }
-        if ((value >> 4) & 0x1) {
+        // STAT reg update:
+        // update PPU mode
+        this.STAT_ff41 = (this.STAT_ff41 & 252) | (this.mode & 3);
+        // Check LYC === LY
+        if (this.LY_ff44 === this.LYC_ff45) {
+            // update stat register and fire interrupt if this hasn't happened already
+            if ((this.STAT_ff41 & 4) === 0) {
+                this.STAT_ff41 = this.STAT_ff41 | 4;
+                // check if we need to fire interrupt
+                if (((this.STAT_ff41 >> 6) & 1) === 1) {
+                    var currentInterruptFlags = this.interrupts.getInterruptFlag();
+                    this.interrupts.setInterruptFlag(currentInterruptFlags | 2);
+                }
+            }
         }
         else {
+            // unset LYC === LC flag in stat
+            this.STAT_ff41 = this.STAT_ff41 & 251;
         }
-        this.LCDC = value & 0xff;
+        // Fetch objects if we're in mode 2
+        if (this.mode === 2) {
+            // this.dots will be between 0 and 79
+            // obj ram contains 40 objects
+            // we'll check one every other dot
+            if (this.dots % 2 === 1) {
+                this.scanObject(Math.floor(this.dots / 2));
+            }
+            // We're ticking our debug renderer during mode 2 and 3
+            if (this.debugRenderingEnabled) {
+                this.debugRenderer.tick();
+            }
+        }
+        // Render pixel if we're in mode 3
+        if (this.mode === 3) {
+            this.renderPipeline.tick();
+            if (this.debugRenderingEnabled) {
+                this.debugRenderer.tick();
+            }
+        }
+        // advance / increase dot
+        var dotPerLine = 456;
+        var numberOfScanLines = 154;
+        this.dots = (this.dots + 1) % dotPerLine;
+        if (this.dots === 0) {
+            this.LY_ff44 = (this.LY_ff44 + 1) % numberOfScanLines;
+            if (this.LY_ff44 === 144) {
+                // vblank, mode 1
+                this.mode = 1;
+                var currentInterruptFlags = this.interrupts.getInterruptFlag();
+                this.interrupts.setInterruptFlag(currentInterruptFlags | 0x1);
+                // also fire mode 1 STAT interrupt if requested
+                if (((this.STAT_ff41 >> 4) & 1) === 1) {
+                    var currentInterruptFlags_1 = this.interrupts.getInterruptFlag();
+                    this.interrupts.setInterruptFlag(currentInterruptFlags_1 | 2);
+                }
+            }
+            else if (this.LY_ff44 === 0) {
+                // we're back at the start
+                this.mode = 2;
+                this.x = 0;
+                this.y = 0;
+                this.debugRenderer.resetForNextFrame();
+            }
+        }
     };
-    PPUImpl.prototype.setBackgroundColorPalette = function (value) {
-        this.ff47 = value & 0xff;
-        var colorId0 = value & 0x03;
-        var colorId1 = (value >> 2) & 0x03;
-        var colorId2 = (value >> 4) & 0x03;
-        var colorId3 = (value >> 6) & 0x03;
-        this.backgroundColorPalette = [colorId0, colorId1, colorId2, colorId3];
+    PPUImpl.prototype.scanObject = function (objectIndex) {
+        if (this.objectsForScanline.length < 10) {
+            var tileHeight = ((this.LCDC_ff40 >> 2) & 0x1) === 0 ? 8 : 16;
+            var oamLocation = objectIndex * 4; // 4 bytes per object
+            // first byte is y index which is the only one we'll be checking
+            if (this.LY_ff44 >= this.oam[oamLocation] - 16 && this.LY_ff44 < this.oam[oamLocation] - 16 + tileHeight) {
+                // we found one
+                this.objectsForScanline.push({
+                    yPosition: this.oam[oamLocation],
+                    xPosition: this.oam[oamLocation + 1],
+                    tileIndex: this.oam[oamLocation + 2],
+                    attributes: this.oam[oamLocation + 3],
+                });
+            }
+        }
     };
-    PPUImpl.prototype.getBackgroundColorPalette = function () {
-        return this.ff47;
+    PPUImpl.prototype.getLCDC = function () {
+        return this.LCDC_ff40;
     };
-    PPUImpl.prototype.setObjectColorPalette0 = function (value) {
-        this.ff48 = value;
-        // color 0 reserved for transparent
-        var colorId1 = (value >> 2) & 0x03;
-        var colorId2 = (value >> 4) & 0x03;
-        var colorId3 = (value >> 6) & 0x03;
-        this.objectColorPalette0 = [colorId1, colorId2, colorId3];
+    PPUImpl.prototype.writeFF40 = function (value) {
+        var ppuEnabledBeforeUpdate = this.ppuEnabled;
+        this.LCDC_ff40 = value & 0xff;
+        this.ppuEnabled = ((this.LCDC_ff40 >> 7) & 0x1) === 1;
+        // when turning on the screen, it'll stay blank for the first frame
+        if (ppuEnabledBeforeUpdate && !this.ppuEnabled) {
+            // display switched off
+            this.mode = 0;
+            this.LY_ff44 = 0;
+            this.x = 0;
+            this.y = 0;
+            this.STAT_ff41 = this.STAT_ff41 & 252;
+        }
+        else if (!ppuEnabledBeforeUpdate && this.ppuEnabled) {
+            this.isFirstFrameAfterPPUEnabled = true;
+            // display switched on
+            // todo double check if we have to throw LYC interrupt
+        }
     };
-    PPUImpl.prototype.getObjectColorPalette0 = function () {
-        return this.ff48;
+    PPUImpl.prototype.readFF40 = function () {
+        return this.LCDC_ff40;
     };
-    PPUImpl.prototype.setObjectColorPalette1 = function (value) {
-        this.ff49 = value;
-        // color 0 reserved for transparent
-        var colorId1 = (value >> 2) & 0x03;
-        var colorId2 = (value >> 4) & 0x03;
-        var colorId3 = (value >> 6) & 0x03;
-        this.objectColorPalette1 = [colorId1, colorId2, colorId3];
+    PPUImpl.prototype.writeFF41 = function (value) {
+        // lower three bit are read only
+        var lowerThreeBits = this.STAT_ff41 & 7;
+        this.STAT_ff41 = (value & 248) | lowerThreeBits;
     };
-    PPUImpl.prototype.getObjectColorPalette1 = function () {
-        return this.ff49;
+    PPUImpl.prototype.readFF41 = function () {
+        return (this.STAT_ff41 & 248) | this.mode;
     };
-    PPUImpl.prototype.getLCDY = function () {
-        return this.LY;
+    PPUImpl.prototype.writeFF42 = function (value) {
+        this.SCY_ff42 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF42 = function () {
+        return this.SCY_ff42;
+    };
+    PPUImpl.prototype.writeFF43 = function (value) {
+        this.SCX_ff43 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF43 = function () {
+        return this.SCX_ff43;
+    };
+    PPUImpl.prototype.readFF44 = function () {
+        return this.LY_ff44;
+    };
+    PPUImpl.prototype.writeFF45 = function (value) {
+        this.LYC_ff45 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF45 = function () {
+        return this.LYC_ff45;
+    };
+    PPUImpl.prototype.writeFF47 = function (value) {
+        this.BGP_ff47 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF47 = function () {
+        return this.BGP_ff47;
+    };
+    PPUImpl.prototype.writeFF48 = function (value) {
+        this.OBP0_ff48 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF48 = function () {
+        return this.OBP0_ff48;
+    };
+    PPUImpl.prototype.writeFF49 = function (value) {
+        this.OBP1_ff49 = value & 0xff;
+    };
+    PPUImpl.prototype.readFF49 = function () {
+        return this.OBP1_ff49;
+    };
+    PPUImpl.prototype.writeFF4A = function (value) {
+        this.WY_ff4a = value & 0xff;
+    };
+    PPUImpl.prototype.readFF4A = function () {
+        return this.WY_ff4a;
+    };
+    PPUImpl.prototype.writeFF4B = function (value) {
+        this.WX_ff4b = value & 0xff;
+    };
+    PPUImpl.prototype.readFF4B = function () {
+        return this.WX_ff4b;
     };
     PPUImpl.prototype.writeVram = function (address, value) {
-        // Return if we're in mode 3 and the diplay is on
-        if (this.currentMode === "Mode3" && ((this.LCDC >> 7) & 1) === 0x1) {
-            return;
-        }
-        if (address > 8191) {
-            throw new Error("attempt to write outside of vram, address: ".concat((0, utils_1.toHexString)(address), ", value: ").concat((0, utils_1.toHexString)(value)));
-        }
         this.vram[address] = value & 0xff;
     };
     PPUImpl.prototype.readVram = function (address) {
-        if (address > 8191) {
-            throw new Error("attempt to read outside of vram, address: ".concat((0, utils_1.toHexString)(address)));
-        }
         return this.vram[address];
     };
     PPUImpl.prototype.writeOAM = function (address, value) {
-        if (address > 159) {
-            throw new Error("attempt to write outside of oam, address: ".concat((0, utils_1.toHexString)(address), ", value: ").concat((0, utils_1.toHexString)(value)));
-        }
         this.oam[address] = value & 0xff;
     };
     PPUImpl.prototype.readOAM = function (address) {
-        if (address > 159) {
-            throw new Error("attempt to read outside of oam, address: ".concat((0, utils_1.toHexString)(address), "}"));
-        }
         return this.oam[address];
     };
-    PPUImpl.prototype.kill = function () {
-        this.killed = true;
-    };
-    /**
-     * Called once we enter debugging mode, feel free to log whatever you need here.
-     */
     PPUImpl.prototype.logDebugInfo = function () {
-        // const tileAddressingMode = (this.LCDC >> 4) & 0x1;
-        // const tileDataStart =
-        //   tileAddressingMode === 0 ? 0x9000 - 0x8000 : 0x8000 - 0x8000;
-        // // bg map area 0 = 9800–9BFF; 1 = 9C00–9FFF
-        // const bgMapArea = (this.LCDC >> 3) & 0x1;
-        // const mapStart = bgMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
-        // const tileIds: string[][] = [];
-        // for (let line = 0; line < 144; line += 8) {
-        //   for (let tileNo = 0; tileNo < 32; tileNo++) {
-        //     const tileIndex = Math.floor(line / 8) * 32 + tileNo;
-        //     let tileId = this.vram[mapStart + tileIndex]; // 1 byte per tile, 8 pixel height
-        //     if (!tileIds[line / 8]) {
-        //       tileIds[line / 8] = [];
-        //     }
-        //     tileIds[line / 8][tileNo] = toHexString(tileId);
-        //   }
-        // }
-        // console.log("vram background tiles");
-        // console.log(tileIds);
-        // const tileHeight = 8;
-        // const objectPositions: string[] = [];
-        // for (let i = 0; i < 40 * 4; i = i + 4) {
-        //   const yPostion = this.oam[i];
-        //   const xPostion = this.oam[i + 1];
-        //   const tileIndex = this.oam[i + 2];
-        //   objectPositions.push(
-        //     yPostion + ":" + xPostion + "=>" + toHexString(tileIndex),
-        //   );
-        // }
-        // console.log("background buffer");
-        // console.log("object positions");
-        // console.log(objectPositions);
+        this.debugRenderingEnabled = true;
     };
     return PPUImpl;
 }());
@@ -7225,8 +7679,7 @@ var RamImpl = /** @class */ (function () {
     };
     RamImpl.prototype.writeHighRam = function (address, value) {
         if (address > 126) {
-            throw new Error("cannot write to high ram outside of address space: " +
-                (0, utils_1.toHexString)(address));
+            throw new Error("cannot write to high ram outside of address space: " + (0, utils_1.toHexString)(address));
         }
         this.highRam[address] = value;
     };
@@ -7542,19 +7995,16 @@ var updateDebugWindows = function () {
     }
     var registers = gameboy === null || gameboy === void 0 ? void 0 : gameboy.getRegisterInfo();
     if (registers) {
-        registersOutput.innerHTML = registers
-            .map(function (c) { return "<div>".concat(c[0], ": ").concat(c[1], "</div>"); })
-            .join("");
+        registersOutput.innerHTML = registers.map(function (c) { return "<div>".concat(c[0], ": ").concat(c[1], "</div>"); }).join("");
     }
     var flags = gameboy === null || gameboy === void 0 ? void 0 : gameboy.getFlagInfo();
     if (flags) {
-        flagsOutput.innerHTML = flags
-            .map(function (c) { return "<div>".concat(c[0], ": ").concat(c[1], "</div>"); })
-            .join("");
+        flagsOutput.innerHTML = flags.map(function (c) { return "<div>".concat(c[0], ": ").concat(c[1], "</div>"); }).join("");
     }
     var stack = gameboy === null || gameboy === void 0 ? void 0 : gameboy.getStackInfo();
     if (stack) {
         stackInfoOutput.innerHTML = stack
+            .filter(function (e) { return e !== undefined; })
             .map(function (e) { return "<div>".concat((0, utils_1.toHexString)(e), "</div>"); })
             .join("");
     }

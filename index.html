@@ -10,9 +10,7 @@
     <div class="main">
       <div class="mainMenu">
         <div>
-          <button onclick="romFileInput.click()" class="mainMenu">
-            Load ROM
-          </button>
+          <button onclick="romFileInput.click()" class="mainMenu">Load ROM</button>
           <input type="file" id="romFileInput" style="display: none" />
         </div>
         <div>
@@ -35,20 +33,10 @@
 
       <div class="debugWindow" id="debugInfos">
         <div>
-          <canvas
-            id="background"
-            width="256"
-            height="256"
-            class="backgroundDebug"
-          ></canvas>
+          <canvas id="background" width="256" height="256" class="backgroundDebug"></canvas>
 
-          <!-- 384 tiles, let's have 16x24 tiles, each tile has 8x8 tiles -->
-          <canvas
-            id="tiles"
-            width="128"
-            height="192"
-            class="tilesDebug"
-          ></canvas>
+          <!-- 384 tiles, let's have 16x24 tiles, each tile has 8x8 pixels -->
+          <canvas id="tiles" width="128" height="192" class="tilesDebug"></canvas>
         </div>
 
         <div>
@@ -74,8 +62,8 @@
 
           <div>
             <div class="debugHeader">
-              Next commands: (click to set breakpoint, press s => step, press b
-              => run until breakpoint hit), c = end debugging
+              Next commands: (click to set breakpoint, press s => step, press b => run until breakpoint hit), c = end
+              debugging
             </div>
             <div id="nextCommands" class="debugOutput"></div>
           </div>
