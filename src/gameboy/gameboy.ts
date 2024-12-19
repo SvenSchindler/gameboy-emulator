@@ -133,7 +133,12 @@ export class Gameboy {
     0x03: "MBC1+RAM+BATTERY",
     0x05: "MBC2",
     0x06: "MBC2+BATTERY",
+    0x19: "MBC5",
+    0x1a: "MBC5+RAM",
     0x1b: "MBC5+RAM+BATTERY",
+    0x1c: "MBC5+RUMBLE",
+    0x1d: "MBC5+RUMBLE+RAM",
+    0x1e: "MBC5+RUMBLE+RAM+BATTERY",
   };
 
   getCartridgeType() {

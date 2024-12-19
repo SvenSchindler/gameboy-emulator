@@ -5,7 +5,12 @@ export type CartridgeType =
   | "MBC1+RAM+BATTERY"
   | "MBC2"
   | "MBC2+BATTERY"
+  | "MBC5"
+  | "MBC5+RAM"
   | "MBC5+RAM+BATTERY"
+  | "MBC5+RUMBLE"
+  | "MBC5+RUMBLE+RAM"
+  | "MBC5+RUMBLE+RAM+BATTERY"
   | "UNKNOWN";
 
 export function createCart(type: CartridgeType, rom: Uint8Array): Cart {
@@ -22,7 +27,17 @@ export function createCart(type: CartridgeType, rom: Uint8Array): Cart {
       return new CartImpMBC2(rom);
     case "MBC2+BATTERY":
       return new CartImpMBC2(rom);
+    case "MBC5":
+      return new CartImpMBC5(rom);
+    case "MBC5+RAM":
+      return new CartImpMBC5(rom);
     case "MBC5+RAM+BATTERY":
+      return new CartImpMBC5(rom);
+    case "MBC5+RUMBLE":
+      return new CartImpMBC5(rom);
+    case "MBC5+RUMBLE+RAM":
+      return new CartImpMBC5(rom);
+    case "MBC5+RUMBLE+RAM+BATTERY":
       return new CartImpMBC5(rom);
     case "UNKNOWN":
       throw new Error("cart type not supported");
