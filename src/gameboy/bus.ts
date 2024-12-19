@@ -74,9 +74,10 @@ export class BusImpl implements Bus {
     else if (address >= 0xff00 && address <= 0xff7f) {
       if (address === 0xff00) {
         result = this.joypad.getJOYP();
+      } else if (address === 0xff01) {
+        result = this.serial.readSB();
       } else if (address === 0xff02) {
-        // ignoring serial read
-        result = 0x00;
+        result = this.serial.readSC();
       } else if (address === 0xff04) {
         result = this.timer.getTimerDiv();
       } else if (address === 0xff05) {
@@ -239,10 +240,12 @@ export class BusImpl implements Bus {
         return;
       }
       if (address === 0xff01) {
+        // data
         this.serial.writeSB(value);
         return;
       }
       if (address === 0xff02) {
+        // transfer control
         this.serial.writeSC(value);
         return;
       }

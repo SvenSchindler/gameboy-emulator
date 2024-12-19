@@ -3,6 +3,7 @@ import { Bus } from "./bus";
 import { CBOps, GetArg, SetArg } from "./cbops";
 import { DMA } from "./dma";
 import { Interrupts } from "./interrupts";
+import { Serial } from "./serial";
 import { PPU } from "./ppu";
 import { Timer } from "./timer";
 import { signedFrom8Bits, toBigEndian, toHexString, toLittleEndian } from "./utils";
@@ -25,6 +26,7 @@ export class CPU {
     readonly interrupts: Interrupts,
     readonly ppu: PPU,
     readonly apu: APU,
+    readonly serial: Serial,
     readonly dma: DMA,
     private timer: Timer,
   ) {}
@@ -85,6 +87,9 @@ export class CPU {
 
   // Always resets after 4 to translate tcycles to mcycles
   private tickModulo = 0;
+
+  // Modulo to clock the serial connection
+  private serialTickModulo = 0;
 
   private cyclesPerSec = 4194304;
   private cyclesPerFrame = this.cyclesPerSec / 59;
@@ -357,6 +362,13 @@ export class CPU {
         this.dma.tick();
         this.apu.tick();
       }
+
+      if (this.serialTickModulo === 511) {
+        this.serial.tick();
+      }
+
+      // 4194304 / 8192 = 512
+      this.serialTickModulo = (this.serialTickModulo + 1) % 512;
 
       this.tickModulo = (this.tickModulo + 1) % 4;
     }

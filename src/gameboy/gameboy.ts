@@ -37,7 +37,7 @@ export class Gameboy {
     const tileCanvas = document.getElementById("tiles") as HTMLCanvasElement;
 
     this.ppu = new PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts);
-    const serial = new SerialImpl();
+    const serial = new SerialImpl(interrupts);
     const timer = new TimerImpl(interrupts);
     this.joypad = new JoyPadImpl(interrupts);
     this.apu = new APUImpl();
@@ -53,7 +53,7 @@ export class Gameboy {
       this.apu,
     );
     const dma = new DMAImpl(this.bus, this.ppu);
-    this.cpu = new CPU(this.bus, interrupts, this.ppu, this.apu, dma, timer);
+    this.cpu = new CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
     this.cpu.run();
   }
 

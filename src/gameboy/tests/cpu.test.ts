@@ -6,6 +6,7 @@ import { InterruptsImpl } from "../interrupts";
 import { PPU } from "../ppu";
 import { Timer } from "../timer";
 import { signedFrom8Bits } from "../utils";
+import { Serial } from "../serial";
 
 describe("cpu", () => {
   const fakeBus: Bus = {
@@ -121,10 +122,22 @@ describe("cpu", () => {
     unmute: () => {},
   };
 
+  const fakeSerial: Serial = {
+    writeSB: function (value: number): void {},
+    readSB: function (): number {
+      return 0;
+    },
+    writeSC: function (value: number): void {},
+    readSC: function (): number {
+      return 0;
+    },
+    tick: function (): void {},
+  };
+
   const interrupts = new InterruptsImpl();
 
   it("should update the correct flags", () => {
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setFlags(0x00);
     expect(cpu.getFlags()).toBe(0);
     cpu.setFlagZ(1);
@@ -147,7 +160,7 @@ describe("cpu", () => {
   });
 
   it("should set the correct registers", () => {
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setRegisterAF(0xab_cd);
     expect(cpu.getRegisterAF()).toBe(0xab_cd);
     expect(cpu.getRegisterA()).toBe(0xab);
@@ -163,14 +176,14 @@ describe("cpu", () => {
   });
 
   it("should store values in little endian", () => {
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setRegisterAF(0xab_cd);
     const rawRegisters = cpu.getRawRegistersForTesting();
     expect(rawRegisters.AF).toBe(0xcd_ab);
   });
 
   it("should increase the program counter", () => {
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     expect(cpu.getPC()).toBe(0x100);
     cpu.increasePC();
     expect(cpu.getPC()).toBe(0x101);
@@ -196,7 +209,7 @@ describe("cpu", () => {
         SP	0xFFFE
         PC	0x0100
         */
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     expect(cpu.getRegisterA()).toBe(0x01);
     expect(cpu.getRegisterF()).toBe(0xb0);
     expect(cpu.getRegisterB()).toBe(0x00);
@@ -210,7 +223,7 @@ describe("cpu", () => {
   });
 
   it("should decrement and set the right flags", () => {
-    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setFlags(0x0);
     cpu.setRegisterB(3);
     cpu.decB();
@@ -247,7 +260,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setRegisterB(0x2);
     cpu.setPC(0x0);
@@ -266,7 +279,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0xf0);
 
@@ -287,7 +300,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0x0);
     cpu.setRegisterA(0x3);
@@ -305,7 +318,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0x00);
 
@@ -326,7 +339,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0x00);
 
@@ -347,7 +360,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0x00);
 
@@ -372,7 +385,7 @@ describe("cpu", () => {
       enableDebugLog: () => {},
       disableDebugLog: () => {},
     };
-    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeDma, fakeTimer);
+    const cpu = new CPU(bus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
     cpu.setPC(0x00);
     cpu.setFlags(0x00);
 
