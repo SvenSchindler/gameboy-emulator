@@ -787,9 +787,11 @@ var BusImpl = /** @class */ (function () {
             if (address === 0xff00) {
                 result = this.joypad.getJOYP();
             }
+            else if (address === 0xff01) {
+                result = this.serial.readSB();
+            }
             else if (address === 0xff02) {
-                // ignoring serial read
-                result = 0x00;
+                result = this.serial.readSC();
             }
             else if (address === 0xff04) {
                 result = this.timer.getTimerDiv();
@@ -980,10 +982,12 @@ var BusImpl = /** @class */ (function () {
                 return;
             }
             if (address === 0xff01) {
+                // data
                 this.serial.writeSB(value);
                 return;
             }
             if (address === 0xff02) {
+                // transfer control
                 this.serial.writeSC(value);
                 return;
             }
@@ -1760,12 +1764,13 @@ var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
  * especially the cb ops, which would have otherwise needed a tremendeous amount of code.
  */
 var CPU = /** @class */ (function () {
-    function CPU(bus, interrupts, ppu, apu, dma, timer) {
+    function CPU(bus, interrupts, ppu, apu, serial, dma, timer) {
         var _this = this;
         this.bus = bus;
         this.interrupts = interrupts;
         this.ppu = ppu;
         this.apu = apu;
+        this.serial = serial;
         this.dma = dma;
         this.timer = timer;
         /**
@@ -1817,6 +1822,8 @@ var CPU = /** @class */ (function () {
         this.cyclesThisFrame = 0;
         // Always resets after 4 to translate tcycles to mcycles
         this.tickModulo = 0;
+        // Modulo to clock the serial connection
+        this.serialTickModulo = 0;
         this.cyclesPerSec = 4194304;
         this.cyclesPerFrame = this.cyclesPerSec / 59;
         this.timePerFrameMs = 1000 / 60;
@@ -6097,6 +6104,11 @@ var CPU = /** @class */ (function () {
                 this.dma.tick();
                 this.apu.tick();
             }
+            if (this.serialTickModulo === 511) {
+                this.serial.tick();
+            }
+            // 4194304 / 8192 = 512
+            this.serialTickModulo = (this.serialTickModulo + 1) % 512;
             this.tickModulo = (this.tickModulo + 1) % 4;
         }
     };
@@ -6356,13 +6368,13 @@ var Gameboy = /** @class */ (function () {
         // Tile canvas, just containing all background tiles for debugging.
         var tileCanvas = document.getElementById("tiles");
         this.ppu = new ppu_1.PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts);
-        var serial = new serial_1.SerialImpl();
+        var serial = new serial_1.SerialImpl(interrupts);
         var timer = new timer_1.TimerImpl(interrupts);
         this.joypad = new joypad_1.JoyPadImpl(interrupts);
         this.apu = new apu_1.APUImpl();
         this.bus = new bus_1.BusImpl(cart, ram, interrupts, this.ppu, serial, timer, function (startAddress) { return dma.writeFF46(startAddress); }, this.joypad, this.apu);
         var dma = new dma_1.DMAImpl(this.bus, this.ppu);
-        this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, dma, timer);
+        this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
         this.cpu.run();
     };
     Gameboy.prototype.startDebug = function () {
@@ -7700,19 +7712,48 @@ exports.RamImpl = RamImpl;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SerialImpl = void 0;
 var SerialImpl = /** @class */ (function () {
-    function SerialImpl() {
-        this.SB = 0x00;
+    function SerialImpl(interrupts) {
+        this.interrupts = interrupts;
+        this.SB = 0xff;
         this.SC = 0x00;
         this.dataAsText = "";
+        // Just a mock counter thats set to 8 once we want to transfer data
+        this.tickCounter = 0;
     }
     SerialImpl.prototype.writeSB = function (value) {
-        this.SB = value & 0xff;
-        this.dataAsText = this.dataAsText + String.fromCharCode(value & 0xff);
+        this.SB = value;
+        // this.dataAsText = this.dataAsText + String.fromCharCode(value & 0xff);
         // Use this for debugging serial output
         // console.log('serial output: ' + this.dataAsText);
     };
+    SerialImpl.prototype.readSB = function () {
+        return this.SB;
+    };
     SerialImpl.prototype.writeSC = function (value) {
-        this.SC = value & 0xff;
+        this.SC = value;
+        if (this.tickCounter > 0) {
+            return;
+        }
+        // In this mock serial implementation we're not really transferring anything
+        // but we'll still shift data into sb.
+        // 0x81, tranfer requested + we are the clock.
+        if (this.SC === 0x81) {
+            this.tickCounter = 8;
+        }
+    };
+    SerialImpl.prototype.readSC = function () {
+        return this.SC;
+    };
+    SerialImpl.prototype.tick = function () {
+        if (this.tickCounter > 0) {
+            this.SB = ((this.SB << 1) | 1) & 0xff;
+            this.tickCounter--;
+            if (this.tickCounter === 0) {
+                this.SC = this.SC & 127;
+                var currentInterruptFlags = this.interrupts.getInterruptFlag();
+                this.interrupts.setInterruptFlag(currentInterruptFlags | 8);
+            }
+        }
     };
     return SerialImpl;
 }());
