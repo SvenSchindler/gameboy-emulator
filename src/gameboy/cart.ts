@@ -5,6 +5,11 @@ export type CartridgeType =
   | "MBC1+RAM+BATTERY"
   | "MBC2"
   | "MBC2+BATTERY"
+  | "MBC3"
+  | "MBC3+RAM"
+  | "MBC3+RAM+BATTERY"
+  | "MBC3+TIMER+BATTERY"
+  | "MBC3+TIMER+RAM+BATTERY"
   | "MBC5"
   | "MBC5+RAM"
   | "MBC5+RAM+BATTERY"
@@ -18,25 +23,23 @@ export function createCart(type: CartridgeType, rom: Uint8Array): Cart {
     case "ROM-ONLY":
       return new CartImplRomOnly(rom);
     case "MBC1":
-      return new CartImpMBC1(rom);
     case "MBC1+RAM":
-      return new CartImpMBC1(rom);
     case "MBC1+RAM+BATTERY":
       return new CartImpMBC1(rom);
     case "MBC2":
-      return new CartImpMBC2(rom);
     case "MBC2+BATTERY":
       return new CartImpMBC2(rom);
+    case "MBC3":
+    case "MBC3+RAM":
+    case "MBC3+RAM+BATTERY":
+    case "MBC3+TIMER+BATTERY":
+    case "MBC3+TIMER+RAM+BATTERY":
+      return new CartImpMBC3(rom);
     case "MBC5":
-      return new CartImpMBC5(rom);
     case "MBC5+RAM":
-      return new CartImpMBC5(rom);
     case "MBC5+RAM+BATTERY":
-      return new CartImpMBC5(rom);
     case "MBC5+RUMBLE":
-      return new CartImpMBC5(rom);
     case "MBC5+RUMBLE+RAM":
-      return new CartImpMBC5(rom);
     case "MBC5+RUMBLE+RAM+BATTERY":
       return new CartImpMBC5(rom);
     case "UNKNOWN":
@@ -226,6 +229,128 @@ export class CartImpMBC2 implements Cart {
       const lower9Bits = address & 0b1_1111_1111;
       this.ram[lower9Bits] = value & 0xff;
     }
+  }
+}
+
+export class CartImpMBC3 implements Cart {
+  private selectedRomBank = 1;
+
+  private selectedRamBank = 1;
+  private ramBanks: number[][] = [];
+
+  private ramAndRtcEnabled = false;
+  // 0xa000-0xbfff can be mapped to either ram or RTC.
+  // If this value is set then mapping is set to RTC.
+  private selectedRTCRegister: number | null = null;
+  // We've got 5 rtc registers
+  private rtcRegisters = [0, 0, 0, 0, 0];
+
+  // True when last write to latch was 0x00;
+  private latchWrote00 = false;
+
+  constructor(
+    readonly rom: Uint8Array,
+    private startTime = performance.now(),
+  ) {}
+
+  read(address: number): number {
+    // ROM Bank 0 - read only
+    if (address >= 0x0 && address <= 0x3fff) {
+      return this.rom[address];
+    }
+
+    // ROM BANKS 1...
+    if (address >= 0x4000 && address <= 0x7fff) {
+      return this.rom[this.selectedRomBank * 0x4000 + (address - 0x4000)];
+    }
+
+    // Built In Ram or rtc
+    if (address >= 0xa000 && address <= 0xbfff) {
+      if (this.ramAndRtcEnabled) {
+        if (this.selectedRTCRegister === null) {
+          if (this.ramBanks[this.selectedRamBank] === undefined) {
+            this.ramBanks[this.selectedRamBank] = [];
+          }
+          return this.ramBanks[this.selectedRamBank][address - 0xa000] ?? 0x0;
+        } else {
+          return this.rtcRegisters[this.selectedRTCRegister];
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  write(address: number, value: number): void {
+    if (address >= 0x0 && address <= 0x1fff) {
+      if ((value & 0xff) === 0x0a) {
+        this.ramAndRtcEnabled = true;
+      } else {
+        this.ramAndRtcEnabled = false;
+      }
+    }
+
+    if (address >= 0xa000 && address <= 0xbfff) {
+      if (this.ramAndRtcEnabled) {
+        if (this.selectedRTCRegister === null) {
+          // Ram write
+          if (this.ramBanks[this.selectedRamBank] === undefined) {
+            this.ramBanks[this.selectedRamBank] = [];
+          }
+          this.ramBanks[this.selectedRamBank][address - 0xa000] = value & 0xff;
+        } else {
+          this.rtcRegisters[this.selectedRTCRegister] = value & 0xff;
+        }
+      }
+    }
+
+    if (address >= 0x2000 && address <= 0x3fff) {
+      // 7 bits rom bank
+      if (value === 0) {
+        this.selectedRomBank = 1;
+      } else {
+        this.selectedRomBank = value & 0b0111_1111;
+      }
+    }
+
+    if (address >= 0x4000 && address <= 0x5fff) {
+      if (value >= 0x0 && value <= 0x3) {
+        this.selectedRamBank = value;
+        this.selectedRTCRegister = null;
+      }
+
+      if (value >= 0x8 && value <= 0xc) {
+        this.selectedRTCRegister = value - 0x8;
+      }
+    }
+
+    if (address >= 0x6000 && address <= 0x7fff) {
+      if (value === 0x0) {
+        this.latchWrote00 = true;
+      } else {
+        if (value === 0x1) {
+          this.latchClockData();
+        }
+        this.latchWrote00 = false;
+      }
+    }
+  }
+
+  latchClockData() {
+    // We'll only fill seconds, minutes and hours and the lower bits for days for now
+    const totalSeconds = (performance.now() - this.startTime) / 1000;
+    const days = Math.floor(totalSeconds / (3600 * 24));
+    const remainingSeconds = totalSeconds % (3600 * 24);
+    const hours = Math.floor(remainingSeconds / 3600);
+    const remainingMinutes = remainingSeconds % 3600;
+    const minutes = Math.floor(remainingMinutes / 60);
+    const seconds = Math.floor(remainingMinutes % 60);
+
+    this.rtcRegisters[0] = seconds & 0xff;
+    this.rtcRegisters[1] = minutes & 0xff;
+    this.rtcRegisters[2] = hours & 0xff;
+    this.rtcRegisters[3] = days & 0xff;
+    this.rtcRegisters[4] = 0; // upper one bit of day counter + halt (6) + carry (7)
   }
 }
 
