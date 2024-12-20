@@ -1192,23 +1192,31 @@ exports.BusImpl = BusImpl;
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CartImpMBC5 = exports.CartImpMBC2 = exports.CartImpMBC1 = exports.CartImplRomOnly = void 0;
+exports.CartImpMBC5 = exports.CartImpMBC3 = exports.CartImpMBC2 = exports.CartImpMBC1 = exports.CartImplRomOnly = void 0;
 exports.createCart = createCart;
 function createCart(type, rom) {
     switch (type) {
         case "ROM-ONLY":
             return new CartImplRomOnly(rom);
         case "MBC1":
-            return new CartImpMBC1(rom);
         case "MBC1+RAM":
-            return new CartImpMBC1(rom);
         case "MBC1+RAM+BATTERY":
             return new CartImpMBC1(rom);
         case "MBC2":
-            return new CartImpMBC2(rom);
         case "MBC2+BATTERY":
             return new CartImpMBC2(rom);
+        case "MBC3":
+        case "MBC3+RAM":
+        case "MBC3+RAM+BATTERY":
+        case "MBC3+TIMER+BATTERY":
+        case "MBC3+TIMER+RAM+BATTERY":
+            return new CartImpMBC3(rom);
+        case "MBC5":
+        case "MBC5+RAM":
         case "MBC5+RAM+BATTERY":
+        case "MBC5+RUMBLE":
+        case "MBC5+RUMBLE+RAM":
+        case "MBC5+RUMBLE+RAM+BATTERY":
             return new CartImpMBC5(rom);
         case "UNKNOWN":
             throw new Error("cart type not supported");
@@ -1390,6 +1398,120 @@ var CartImpMBC2 = /** @class */ (function () {
     return CartImpMBC2;
 }());
 exports.CartImpMBC2 = CartImpMBC2;
+var CartImpMBC3 = /** @class */ (function () {
+    function CartImpMBC3(rom, startTime) {
+        if (startTime === void 0) { startTime = performance.now(); }
+        this.rom = rom;
+        this.startTime = startTime;
+        this.selectedRomBank = 1;
+        this.selectedRamBank = 1;
+        this.ramBanks = [];
+        this.ramAndRtcEnabled = false;
+        // 0xa000-0xbfff can be mapped to either ram or RTC.
+        // If this value is set then mapping is set to RTC.
+        this.selectedRTCRegister = null;
+        // We've got 5 rtc registers
+        this.rtcRegisters = [0, 0, 0, 0, 0];
+        // True when last write to latch was 0x00;
+        this.latchWrote00 = false;
+    }
+    CartImpMBC3.prototype.read = function (address) {
+        var _a;
+        // ROM Bank 0 - read only
+        if (address >= 0x0 && address <= 0x3fff) {
+            return this.rom[address];
+        }
+        // ROM BANKS 1...
+        if (address >= 0x4000 && address <= 0x7fff) {
+            return this.rom[this.selectedRomBank * 0x4000 + (address - 0x4000)];
+        }
+        // Built In Ram or rtc
+        if (address >= 0xa000 && address <= 0xbfff) {
+            if (this.ramAndRtcEnabled) {
+                if (this.selectedRTCRegister === null) {
+                    if (this.ramBanks[this.selectedRamBank] === undefined) {
+                        this.ramBanks[this.selectedRamBank] = [];
+                    }
+                    return (_a = this.ramBanks[this.selectedRamBank][address - 0xa000]) !== null && _a !== void 0 ? _a : 0x0;
+                }
+                else {
+                    return this.rtcRegisters[this.selectedRTCRegister];
+                }
+            }
+        }
+        return 0;
+    };
+    CartImpMBC3.prototype.write = function (address, value) {
+        if (address >= 0x0 && address <= 0x1fff) {
+            if ((value & 0xff) === 0x0a) {
+                this.ramAndRtcEnabled = true;
+            }
+            else {
+                this.ramAndRtcEnabled = false;
+            }
+        }
+        if (address >= 0xa000 && address <= 0xbfff) {
+            if (this.ramAndRtcEnabled) {
+                if (this.selectedRTCRegister === null) {
+                    // Ram write
+                    if (this.ramBanks[this.selectedRamBank] === undefined) {
+                        this.ramBanks[this.selectedRamBank] = [];
+                    }
+                    this.ramBanks[this.selectedRamBank][address - 0xa000] = value & 0xff;
+                }
+                else {
+                    this.rtcRegisters[this.selectedRTCRegister] = value & 0xff;
+                }
+            }
+        }
+        if (address >= 0x2000 && address <= 0x3fff) {
+            // 7 bits rom bank
+            if (value === 0) {
+                this.selectedRomBank = 1;
+            }
+            else {
+                this.selectedRomBank = value & 127;
+            }
+        }
+        if (address >= 0x4000 && address <= 0x5fff) {
+            if (value >= 0x0 && value <= 0x3) {
+                this.selectedRamBank = value;
+                this.selectedRTCRegister = null;
+            }
+            if (value >= 0x8 && value <= 0xc) {
+                this.selectedRTCRegister = value - 0x8;
+            }
+        }
+        if (address >= 0x6000 && address <= 0x7fff) {
+            if (value === 0x0) {
+                this.latchWrote00 = true;
+            }
+            else {
+                if (value === 0x1) {
+                    this.latchClockData();
+                }
+                this.latchWrote00 = false;
+            }
+        }
+    };
+    CartImpMBC3.prototype.latchClockData = function () {
+        // We'll only fill seconds, minutes and hours and the lower bits for days for now
+        var totalSeconds = (performance.now() - this.startTime) / 1000;
+        var days = Math.floor(totalSeconds / (3600 * 24));
+        var remainingSeconds = totalSeconds % (3600 * 24);
+        var hours = Math.floor(remainingSeconds / 3600);
+        var remainingMinutes = remainingSeconds % 3600;
+        var minutes = Math.floor(remainingMinutes / 60);
+        var seconds = Math.floor(remainingMinutes % 60);
+        this.rtcRegisters[0] = seconds & 0xff;
+        this.rtcRegisters[1] = minutes & 0xff;
+        this.rtcRegisters[2] = hours & 0xff;
+        this.rtcRegisters[3] = days & 0xff;
+        this.rtcRegisters[4] = 0; // upper one bit of day counter + halt (6) + carry (7)
+    };
+    return CartImpMBC3;
+}());
+exports.CartImpMBC3 = CartImpMBC3;
 var CartImpMBC5 = /** @class */ (function () {
     function CartImpMBC5(rom) {
         this.rom = rom;
@@ -6352,7 +6474,17 @@ var Gameboy = /** @class */ (function () {
             0x03: "MBC1+RAM+BATTERY",
             0x05: "MBC2",
             0x06: "MBC2+BATTERY",
+            0x0f: "MBC3+TIMER+BATTERY",
+            0x10: "MBC3+TIMER+RAM+BATTERY",
+            0x11: "MBC3",
+            0x12: "MBC3+RAM",
+            0x13: "MBC3+RAM+BATTERY",
+            0x19: "MBC5",
+            0x1a: "MBC5+RAM",
             0x1b: "MBC5+RAM+BATTERY",
+            0x1c: "MBC5+RUMBLE",
+            0x1d: "MBC5+RUMBLE+RAM",
+            0x1e: "MBC5+RUMBLE+RAM+BATTERY",
         };
     }
     Gameboy.prototype.load = function (rom) {
