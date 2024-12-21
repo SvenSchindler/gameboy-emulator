@@ -18,14 +18,18 @@ export type CartridgeType =
   | "MBC5+RUMBLE+RAM+BATTERY"
   | "UNKNOWN";
 
-export function createCart(type: CartridgeType, rom: Uint8Array): Cart {
+export type CartridgeInfo = {
+  title: string;
+};
+
+export function createCart(type: CartridgeType, rom: Uint8Array, cartridgeInfo: CartridgeInfo): Cart {
   switch (type) {
     case "ROM-ONLY":
       return new CartImplRomOnly(rom);
     case "MBC1":
     case "MBC1+RAM":
     case "MBC1+RAM+BATTERY":
-      return new CartImpMBC1(rom);
+      return new CartImpMBC1(rom, cartridgeInfo);
     case "MBC2":
     case "MBC2+BATTERY":
       return new CartImpMBC2(rom);
@@ -78,7 +82,15 @@ export class CartImpMBC1 implements Cart {
   // Keep it simple, 4 possible ram banks
   private ramBanks: number[] = [];
 
-  constructor(readonly rom: Uint8Array) {}
+  constructor(
+    readonly rom: Uint8Array,
+    private cartridgeInfo: CartridgeInfo,
+  ) {
+    const existingRam = localStorage.getItem(this.cartridgeInfo.title);
+    if (existingRam) {
+      this.ramBanks = JSON.parse(existingRam);
+    }
+  }
 
   read(address: number): number {
     if (address >= 0 && address <= 0x3fff) {
@@ -102,6 +114,16 @@ export class CartImpMBC1 implements Cart {
     }
   }
 
+  lastPersisted = 0;
+
+  persistRam() {
+    const now = performance.now();
+    if (now - this.lastPersisted > 3_000) {
+      this.lastPersisted = now;
+      localStorage.setItem(this.cartridgeInfo.title, JSON.stringify(this.ramBanks));
+    }
+  }
+
   write(address: number, value: number): void {
     // Ram writes
     if (address >= 0xa000 && address <= 0xbfff) {
@@ -111,6 +133,7 @@ export class CartImpMBC1 implements Cart {
         } else {
           this.ramBanks[this.selectedRamBank * 0x2000 + (address - 0xa000)] = value;
         }
+        // this.persistRam();
         return;
       } else {
         // ignore ram write to disabled ram

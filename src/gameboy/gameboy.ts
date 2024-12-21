@@ -1,6 +1,6 @@
 import { APUImpl, APU } from "./apu";
 import { Bus, BusImpl } from "./bus";
-import { createCart, CartridgeType } from "./cart";
+import { createCart, CartridgeType, CartridgeInfo } from "./cart";
 import { CPU } from "./cpu";
 import { DMAImpl } from "./dma";
 import { InterruptsImpl } from "./interrupts";
@@ -20,10 +20,10 @@ export class Gameboy {
   private cartridgeType: CartridgeType | undefined;
 
   load(rom: Uint8Array) {
-    this.readRomInfo(rom);
+    const cartridgeInfo = this.readRomInfo(rom);
     const interrupts = new InterruptsImpl();
 
-    const cart = createCart(this.cartridgeType!, rom);
+    const cart = createCart(this.cartridgeType!, rom, cartridgeInfo);
     const ram = new RamImpl();
 
     // Our canvases
@@ -150,7 +150,7 @@ export class Gameboy {
     return this.cartridgeType ?? "UNKNOWN";
   }
 
-  private readRomInfo(rom: Uint8Array) {
+  private readRomInfo(rom: Uint8Array): CartridgeInfo {
     // Cart header goes from $0100—$014F
 
     // Just the title: 0134-0143 — Title
@@ -166,6 +166,10 @@ export class Gameboy {
     this.cartridgeType = this.idToCartridgeType[cartrigeType];
 
     console.log(`title: ${title}\tcartridg type: ${toHexString(cartrigeType)}, rom size: ${rom.length}`);
+
+    return {
+      title,
+    };
   }
 
   pressStart() {

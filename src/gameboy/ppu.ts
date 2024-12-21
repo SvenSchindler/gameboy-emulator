@@ -463,7 +463,6 @@ class RenderPipeline {
       this.pixelsSentToLCDForCurrentLine >= this.getPPUInfo().WX_ff4b - 7 &&
       !this.backgroundPixelFetcher.isFetchingWindow()
     ) {
-      debugger;
       this.backgroundPixelFetcher.switchToWindowRendering();
     }
 

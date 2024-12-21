@@ -32,13 +32,21 @@ To debug a game just load the rom of your choice and press `d` whenever you want
 
 ## Feature support
 
-The following core features have been implemented and have been running pretty stable in my tests.
+The following core features have been implemented and have been running pretty stable in my tests:
 
 - CPU
+- PPU
 - DMA
 - Timer
-- Bus (mostly implemented)
-- ROM only + MBC1 cartridge support
+- Bus
+
+The emulator supports the following cartridge types:
+
+- ROM only
+- MBC 1
+- MBC 2
+- MBC 3
+- MBC 5
 
 Besides these core features, I implemented a basic PPU and some basic audio support. I might rewrite the APU at some point. I tried to structure the code in a way that makes it simple to replace or extend major components such as PPU or APU.
 
