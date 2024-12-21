@@ -184,9 +184,9 @@ describe("cpu", () => {
 
   it("should increase the program counter", () => {
     const cpu = new CPU(fakeBus, interrupts, fakePPU, fakeAPU, fakeSerial, fakeDma, fakeTimer);
-    expect(cpu.getPC()).toBe(0x100);
+    expect(cpu.getPC()).toBe(0x0);
     cpu.increasePC();
-    expect(cpu.getPC()).toBe(0x101);
+    expect(cpu.getPC()).toBe(0x1);
 
     cpu.setPC(0xffff);
     expect(cpu.getPC()).toBe(0xffff);
@@ -219,7 +219,7 @@ describe("cpu", () => {
     expect(cpu.getRegisterH()).toBe(0x01);
     expect(cpu.getRegisterL()).toBe(0x4d);
     expect(cpu.getRegisterSP()).toBe(0xfffe);
-    expect(cpu.getRegisterPC()).toBe(0x100);
+    expect(cpu.getRegisterPC()).toBe(0x0);
   });
 
   it("should decrement and set the right flags", () => {

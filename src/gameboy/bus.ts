@@ -25,7 +25,10 @@ export interface Bus {
 export class BusImpl implements Bus {
   private debugging = false;
 
+  private booting = true;
+
   constructor(
+    readonly bootRom: Uint8Array,
     readonly cart: Cart,
     readonly ram: Ram,
     readonly interrupts: Interrupts,
@@ -39,8 +42,13 @@ export class BusImpl implements Bus {
 
   read(address: number, skipDebugging = false): number {
     let result = 0;
+
+    if (address <= 0xff && this.booting) {
+      result = this.bootRom[address];
+    }
+
     // 16 KiB ROM bank 00	From cartridge, usually a fixed bank
-    if (address >= 0x0000 && address <= 0x3fff) {
+    else if (address >= 0x0000 && address <= 0x3fff) {
       result = this.cart.read(address);
     }
     // 16 KiB ROM Bank 01–NN	From cartridge, switchable bank via mapper (if any)
@@ -191,6 +199,12 @@ export class BusImpl implements Bus {
         `%cDebugger - bus: writing ${toHexString(value)} to address ${toHexString(address)}`,
         "background: #ffffff; color: #ff0000",
       );
+    }
+
+    // This write disables the boot rom
+    if (this.booting && address === 0xff50) {
+      this.booting = false;
+      return;
     }
 
     // 16 KiB ROM bank 00	From cartridge, usually a fixed bank

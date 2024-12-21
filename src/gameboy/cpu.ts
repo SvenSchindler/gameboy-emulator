@@ -57,7 +57,7 @@ export class CPU {
     DE: 0xd8_00,
     HL: 0x4d_01,
     SP: 0xfe_ff, // 0xFF_FE stack pointer
-    PC: 0x00_01, // 0x01_00 = start address
+    PC: 0x00_00, // 0x01_00 = start address
   };
 
   // For us internally
