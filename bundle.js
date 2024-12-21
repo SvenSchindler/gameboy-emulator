@@ -1194,14 +1194,14 @@ exports.BusImpl = BusImpl;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.CartImpMBC5 = exports.CartImpMBC3 = exports.CartImpMBC2 = exports.CartImpMBC1 = exports.CartImplRomOnly = void 0;
 exports.createCart = createCart;
-function createCart(type, rom) {
+function createCart(type, rom, cartridgeInfo) {
     switch (type) {
         case "ROM-ONLY":
             return new CartImplRomOnly(rom);
         case "MBC1":
         case "MBC1+RAM":
         case "MBC1+RAM+BATTERY":
-            return new CartImpMBC1(rom);
+            return new CartImpMBC1(rom, cartridgeInfo);
         case "MBC2":
         case "MBC2+BATTERY":
             return new CartImpMBC2(rom);
@@ -1238,14 +1238,20 @@ var CartImplRomOnly = /** @class */ (function () {
 }());
 exports.CartImplRomOnly = CartImplRomOnly;
 var CartImpMBC1 = /** @class */ (function () {
-    function CartImpMBC1(rom) {
+    function CartImpMBC1(rom, cartridgeInfo) {
         this.rom = rom;
+        this.cartridgeInfo = cartridgeInfo;
         this.selectedRomBank = 1;
         this.selectedRamBank = 0;
         this.mode = 0;
         this.ramEnabled = false;
         // Keep it simple, 4 possible ram banks
         this.ramBanks = [];
+        this.lastPersisted = 0;
+        var existingRam = localStorage.getItem(this.cartridgeInfo.title);
+        if (existingRam) {
+            this.ramBanks = JSON.parse(existingRam);
+        }
     }
     CartImpMBC1.prototype.read = function (address) {
         if (address >= 0 && address <= 0x3fff) {
@@ -1272,6 +1278,13 @@ var CartImpMBC1 = /** @class */ (function () {
             throw Error("cart memory region not supported");
         }
     };
+    CartImpMBC1.prototype.persistRam = function () {
+        var now = performance.now();
+        if (now - this.lastPersisted > 3000) {
+            this.lastPersisted = now;
+            localStorage.setItem(this.cartridgeInfo.title, JSON.stringify(this.ramBanks));
+        }
+    };
     CartImpMBC1.prototype.write = function (address, value) {
         // Ram writes
         if (address >= 0xa000 && address <= 0xbfff) {
@@ -1282,6 +1295,7 @@ var CartImpMBC1 = /** @class */ (function () {
                 else {
                     this.ramBanks[this.selectedRamBank * 0x2000 + (address - 0xa000)] = value;
                 }
+                // this.persistRam();
                 return;
             }
             else {
@@ -6488,9 +6502,9 @@ var Gameboy = /** @class */ (function () {
         };
     }
     Gameboy.prototype.load = function (rom) {
-        this.readRomInfo(rom);
+        var cartridgeInfo = this.readRomInfo(rom);
         var interrupts = new interrupts_1.InterruptsImpl();
-        var cart = (0, cart_1.createCart)(this.cartridgeType, rom);
+        var cart = (0, cart_1.createCart)(this.cartridgeType, rom, cartridgeInfo);
         var ram = new ram_1.RamImpl();
         // Our canvases
         // main screen
@@ -6588,6 +6602,9 @@ var Gameboy = /** @class */ (function () {
         }
         this.cartridgeType = this.idToCartridgeType[cartrigeType];
         console.log("title: ".concat(title, "\tcartridg type: ").concat((0, utils_1.toHexString)(cartrigeType), ", rom size: ").concat(rom.length));
+        return {
+            title: title,
+        };
     };
     Gameboy.prototype.pressStart = function () {
         this.joypad.pressStartButton();
@@ -7323,7 +7340,6 @@ var RenderPipeline = /** @class */ (function () {
             // position is defined as + 7, https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
             this.pixelsSentToLCDForCurrentLine >= this.getPPUInfo().WX_ff4b - 7 &&
             !this.backgroundPixelFetcher.isFetchingWindow()) {
-            debugger;
             this.backgroundPixelFetcher.switchToWindowRendering();
         }
         if (this.isStartOfScanline) {
