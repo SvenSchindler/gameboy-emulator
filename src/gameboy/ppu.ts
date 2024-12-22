@@ -357,6 +357,10 @@ class BackgroundWindowPixelFetcher {
     }
   }
 
+  getCurrentStep(): PixelFetcherStep {
+    return this.steps[this.currentStepIndex];
+  }
+
   private lookupWindowTile(tileAddressingMode: number) {
     const windowMapArea = (this.getPPUInfo().LCDC_ff40 >> 6) & 0x1;
     const mapStart = windowMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
@@ -522,10 +526,27 @@ class RenderPipeline {
     }
 
     // Fetch
+    // It's a bit tough to simulate this simultaneous catching and sending
+    // done in hardware so we'll just keep track of whether a push
+    // was possible before the sending a pixel to the LCD and if not
+    // we'll just try again.
+    let backgroundCatcherShouldPush = true;
+    const fifoSizeBeforeTick = this.backgroundPixelFetcher.getFifo().length;
     this.backgroundPixelFetcher.tick();
+    if (
+      this.backgroundPixelFetcher.getFifo().length > fifoSizeBeforeTick ||
+      this.backgroundPixelFetcher.getCurrentStep().name !== "Push" // we don't try again if the fifo wasn't even trying to push
+    ) {
+      backgroundCatcherShouldPush = false;
+    }
 
     // Send
     this.maybeSendPixelInFifoToLCD();
+
+    // Fetch
+    if (backgroundCatcherShouldPush) {
+      this.backgroundPixelFetcher.tick();
+    }
   }
 
   mergeSpriteIntoBackground() {
