@@ -7281,6 +7281,9 @@ var BackgroundWindowPixelFetcher = /** @class */ (function () {
             this.currentDotForStep = 0;
         }
     };
+    BackgroundWindowPixelFetcher.prototype.getCurrentStep = function () {
+        return this.steps[this.currentStepIndex];
+    };
     BackgroundWindowPixelFetcher.prototype.lookupWindowTile = function (tileAddressingMode) {
         var windowMapArea = (this.getPPUInfo().LCDC_ff40 >> 6) & 0x1;
         var mapStart = windowMapArea === 0 ? 0x9800 - 0x8000 : 0x9c00 - 0x8000;
@@ -7419,9 +7422,24 @@ var RenderPipeline = /** @class */ (function () {
             }
         }
         // Fetch
+        // It's a bit tough to simulate this simultaneous catching and sending
+        // done in hardware so we'll just keep track of whether a push
+        // was possible before the sending a pixel to the LCD and if not
+        // we'll just try again.
+        var backgroundCatcherShouldPush = true;
+        var fifoSizeBeforeTick = this.backgroundPixelFetcher.getFifo().length;
         this.backgroundPixelFetcher.tick();
+        if (this.backgroundPixelFetcher.getFifo().length > fifoSizeBeforeTick ||
+            this.backgroundPixelFetcher.getCurrentStep().name !== "Push" // we don't try again if the fifo wasn't even trying to push
+        ) {
+            backgroundCatcherShouldPush = false;
+        }
         // Send
         this.maybeSendPixelInFifoToLCD();
+        // Fetch
+        if (backgroundCatcherShouldPush) {
+            this.backgroundPixelFetcher.tick();
+        }
     };
     RenderPipeline.prototype.mergeSpriteIntoBackground = function () {
         var spriteFifo = this.spritePixelFetcher.getFifo();
