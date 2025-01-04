@@ -92,12 +92,20 @@ export class CPU {
   private serialTickModulo = 0;
 
   private cyclesPerSec = 4194304;
-  private cyclesPerFrame = this.cyclesPerSec / 59;
+  private cyclesPerFrame = this.cyclesPerSec / 60;
   private timePerFrameMs = 1000 / 60;
   private startTimeMs = performance.now();
 
+  private totalFramesGenerated = 0;
+  private absoluteStartTime = 0;
+
+  start() {
+    this.totalFramesGenerated = 0;
+    this.absoluteStartTime = performance.now();
+    this.run();
+  }
+
   run() {
-    // Set timeout has such a strong latency that we have to measure the time here
     this.startTimeMs = performance.now();
     while (this.cyclesThisFrame < this.cyclesPerFrame && !this.killed) {
       if (this.debugging) {
@@ -109,18 +117,18 @@ export class CPU {
       this.step();
     }
     this.cyclesThisFrame = 0;
+    this.totalFramesGenerated++;
+    //
     const timeTakenMs = performance.now() - this.startTimeMs;
-
     setTimeout(
       () => {
         if (!this.killed) {
           this.run();
         }
-        // ms hack to compensate for set timeout, we don't want to sound to fluctuate too much which is why we dont' want this value to change too often
-        // we should actually measure this
       },
-      // Todo(put the timing back in)
-      this.timePerFrameMs - (timeTakenMs + 0),
+      // We delay the next frame taking the absolute time taken into account
+      // to avoid running out of sync at some point.
+      this.absoluteStartTime + this.totalFramesGenerated * this.timePerFrameMs - timeTakenMs - performance.now(),
     );
   }
 
@@ -131,6 +139,12 @@ export class CPU {
 
       // Fetch next instruction
       const pc = this.getPC();
+
+      // if (/*pc === 24*/ pc ===  16580) {
+      //   // this.debugging = true;
+      //   debugger;
+      // }
+
       const instructionNo = this.bus.read(pc);
       const instruction = this.instructions[instructionNo];
 
@@ -288,7 +302,7 @@ export class CPU {
 
   continue() {
     this.debugging = false;
-    this.run();
+    this.start();
   }
 
   getNextFewBytes(): string {
@@ -353,6 +367,8 @@ export class CPU {
       this.ppu.tick();
       this.cyclesThisFrame++;
 
+      this.apu.tick();
+
       if (this.tickModulo === 1 || this.tickModulo === 3) {
         this.apu.channel3Tick();
       }
@@ -360,7 +376,6 @@ export class CPU {
       if (this.tickModulo === 3) {
         // these tick at 4194304 / 4 = 1048576 per second
         this.dma.tick();
-        this.apu.tick();
       }
 
       if (this.serialTickModulo === 511) {

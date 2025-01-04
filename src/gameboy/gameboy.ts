@@ -1,4 +1,5 @@
 import { APUImpl, APU } from "./apu";
+import { ApuV2Impl } from "./apu-v2/apu-v2";
 import { Bus, BusImpl } from "./bus";
 import { createCart, CartridgeType, CartridgeInfo } from "./cart";
 import { CPU } from "./cpu";
@@ -59,7 +60,12 @@ export class Gameboy {
     const serial = new SerialImpl(interrupts);
     const timer = new TimerImpl(interrupts);
     this.joypad = new JoyPadImpl(interrupts);
-    this.apu = new APUImpl();
+
+    // I've implemented 2 APUs, a more precise one with pcm and stereo support which requires a bit more performance and a hacky one.
+    // If you're running this on a slow machine you might want to replace this with the old apu
+    // this.apu = new APUImpl();
+    this.apu = new ApuV2Impl();
+
     this.bus = new BusImpl(
       bootRom,
       cart,
@@ -74,7 +80,7 @@ export class Gameboy {
     );
     const dma = new DMAImpl(this.bus, this.ppu);
     this.cpu = new CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
-    this.cpu.run();
+    this.cpu.start();
   }
 
   startDebug() {

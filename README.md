@@ -39,6 +39,9 @@ The following core features have been implemented and have been running pretty s
 - DMA
 - Timer
 - Bus
+- APU
+
+You'll find 2 APUs in the code base. A more complex one and a simple and hacky one. The simple one is pretty fast but not very accurate and without pcm and stereo support. The complex one supports pcm and stereo but requires a fast machine to run since timing is pivotal for this engine.
 
 The emulator supports the following cartridge types:
 
@@ -47,8 +50,6 @@ The emulator supports the following cartridge types:
 - MBC 2
 - MBC 3
 - MBC 5
-
-Besides these core features, I implemented some basic audio support. I might rewrite the APU at some point actually since it's pretty immature. I tried to structure the code in a way that makes it simple to replace or extend major components such as PPU or APU.
 
 I added support for the most common cartridge types. However, if you're missing one, adding a new type shouldn't be this hard and can just be added to `src/cart.ts`.
 

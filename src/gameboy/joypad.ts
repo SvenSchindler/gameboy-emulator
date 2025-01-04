@@ -25,7 +25,6 @@ export interface JoyPad {
 }
 
 export class JoyPadImpl implements JoyPad {
-  // 0xFF
   private JOYP = 0xff;
 
   private buttons = 0xf;
@@ -34,12 +33,12 @@ export class JoyPadImpl implements JoyPad {
   constructor(private interrupts: Interrupts) {}
 
   getJOYP(): number {
-    if ((this.JOYP & 0xf0) === 0b0001_0000) {
-      return 0b1101_0000 | this.buttons;
-    } else if ((this.JOYP & 0xf0) === 0b0010_0000) {
-      return 0b1110_0000 | this.pad;
+    if ((this.JOYP & 0b0010_0000) === 0x0) {
+      return (this.JOYP & 0xf0) | this.buttons;
+    } else if ((this.JOYP & 0b0001_0000) === 0) {
+      return (this.JOYP & 0xf0) | this.pad;
     } else {
-      return 0xff;
+      return (this.JOYP & 0b1111_0000) | 0xf;
     }
   }
 
@@ -48,35 +47,43 @@ export class JoyPadImpl implements JoyPad {
   }
 
   pressStartButton(): void {
-    this.buttons = 0b0111;
+    this.buttons = this.buttons & 0b0111;
+    const currentInterruptFlags = this.interrupts.getInterruptFlag();
+    this.interrupts.setInterruptFlag(currentInterruptFlags | 0b10000);
   }
 
   releaseStartButton(): void {
-    this.buttons = 0xf;
+    this.buttons = this.buttons | 0b1000;
   }
 
   pressSelectButton(): void {
-    this.buttons = 0b1011;
+    this.buttons = this.buttons & 0b1011;
+    const currentInterruptFlags = this.interrupts.getInterruptFlag();
+    this.interrupts.setInterruptFlag(currentInterruptFlags | 0b10000);
   }
 
   releaseSelectButton(): void {
-    this.buttons = 0xf;
+    this.buttons = this.buttons | 0b0100;
   }
 
   pressAButton(): void {
-    this.buttons = 0b1110;
+    this.buttons = this.buttons & 0b1110;
+    const currentInterruptFlags = this.interrupts.getInterruptFlag();
+    this.interrupts.setInterruptFlag(currentInterruptFlags | 0b10000);
   }
 
   releaseAButton(): void {
-    this.buttons = 0xf;
+    this.buttons = this.buttons | 0b0001;
   }
 
   pressBButton(): void {
-    this.buttons = 0b1101;
+    this.buttons = this.buttons & 0b1101;
+    const currentInterruptFlags = this.interrupts.getInterruptFlag();
+    this.interrupts.setInterruptFlag(currentInterruptFlags | 0b10000);
   }
 
   releaseBButton(): void {
-    this.buttons = 0xf;
+    this.buttons = this.buttons | 0b0010;
   }
 
   pressLeft(): void {

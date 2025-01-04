@@ -1,5 +1,3 @@
-import { toHexString } from "./utils";
-
 export interface APU {
   // FF26 / NR52 - audio channels on off control
   writeAudioMasterControl: (value: number) => void;
@@ -87,6 +85,7 @@ type SweepDirection = "UP" | "DOWN";
 type EnvelopeDirection = "INCREASE" | "DECREASE";
 
 /**
+ * This APU is outdated. If you've got a fast machine, use apu v2.
  * Quick and hacky APU implementation, lacks a bunch of features:
  * -> phasing not implemented
  * -> no support for proper PCM sampling (would require major refactor)
@@ -211,10 +210,10 @@ export class APUImpl implements APU {
     this.volume = this.deafultVolume;
   }
 
-  // This is being called 1048576 times per second
+  // This is being called 1048576 * 4 times per second
   tick() {
-    // Envelopes are ticked at 64hz, that's every 16384 cycles
-    this.envelopeTickCounter = (this.envelopeTickCounter + 1) % 16384;
+    // Envelopes are ticked at 64hz, that's every 16384 * 4 cycles
+    this.envelopeTickCounter = (this.envelopeTickCounter + 1) % (16384 * 4);
     if (this.envelopeTickCounter === 0) {
       this.handleChannel1Envelope();
       this.handleChannel2Envelope();
@@ -327,7 +326,6 @@ export class APUImpl implements APU {
     this.channel1SweepTickCounter = (this.channel1SweepTickCounter + 1) % 8192;
     if (this.channel1SweepTickCounter === 0) {
       this.hanldeChannel1Sweep();
-      this.deleteMe();
     }
   }
 
@@ -534,29 +532,6 @@ export class APUImpl implements APU {
   }
 
   channel3SampleChanged = false;
-  private deleteMe() {
-    if (!this.channel3SampleChanged) {
-      return;
-    }
-
-    const outputLevel = (this.NR32 >> 5) & 0b11;
-    this.channel3Volume = this.channel3Volumes[outputLevel];
-
-    const period = ((this.NR34 & 0b111) << 8) | (this.NR33 & 0xff);
-    this.channel3Samples = [0, 0];
-    const frequency = 65536 / (2048 - period);
-    const samplesRequired = this.audioContext.sampleRate / frequency;
-    for (let i = 0; i < samplesRequired; i++) {
-      // 32 samples
-      const sampleIndex = (31 / samplesRequired) * i;
-      const sample = this.getChannel3WaveSampleAtIndex(i);
-      this.channel3Samples[i] = sample;
-    }
-
-    if (this.channel3SampleIndex >= samplesRequired) {
-      this.channel3SampleIndex = 1;
-    }
-  }
 
   private getChannel3WaveSampleAtIndex(index: number) {
     const channel3WavePattern = this.FE30toFE3F;
@@ -588,30 +563,6 @@ export class APUImpl implements APU {
     this.NR51 = value & 0xff;
 
     // mute channels if panning is off on both sides
-
-    // channel 1
-    // right && left
-    if (!(this.NR51 & 0b0000_0001) && !(this.NR51 & 0b0001_0000)) {
-      this.channel1Volume = 0;
-    }
-
-    // channel 2
-    // right && left
-    if (!(this.NR51 & 0b0000_0010) && !(this.NR51 & 0b0010_0000)) {
-      this.channel2Volume = 0;
-    }
-
-    // channel 3
-    // right && left
-    if (!(this.NR51 & 0b0000_0100) && !(this.NR51 & 0b0100_0000)) {
-      this.channel3Volume = 0;
-    }
-
-    // channel 4
-    // right && left
-    if (!(this.NR51 & 0b0000_1000) && !(this.NR51 & 0b1000_0000)) {
-      this.channel4Volume = 0;
-    }
   }
 
   readAudioChannelPanning() {
