@@ -257,6 +257,11 @@ class BackgroundWindowPixelFetcher {
   // Once we hit a window coordinate, this flag will get flipped and we'll just render the window from now on.
   private renderingWindow = false;
 
+  // We clear the background buffer when switching to window mode which might accidentally
+  // remove object pixels. We keep a backup of the object pixels and merge them back into
+  // the window buffer.
+  private objectPixelBackup: (BackgroundWindowPixel | null)[] = [];
+
   /**
    *
    * @param vram
@@ -338,6 +343,19 @@ class BackgroundWindowPixelFetcher {
         { colorIndex: color6 },
         { colorIndex: color7 },
       ];
+
+      // Maybe merge already fetched objects back into the window fifo.
+      // Todo: in theory, we'd have to double check the object priority for the new
+      // window value but this is so unlikely that I can't be bothered :)
+      if (this.isFetchingWindow() && this.objectPixelBackup.length > 0) {
+        for (let i = 0; i < tmpPixels.length; i++) {
+          const entry = this.objectPixelBackup.shift();
+          if (entry != null) {
+            tmpPixels[i] = entry;
+          }
+        }
+      }
+
       if (this.backgroundWindowFifo.length <= this.minElementsInBackgroundFifo) {
         this.backgroundWindowFifo.push(...tmpPixels);
         pushStepDone = true;
@@ -413,8 +431,18 @@ class BackgroundWindowPixelFetcher {
   }
 
   switchToWindowRendering() {
-    this.renderingWindow = true;
+    // There's a tricky edge case where we've already merged some object data into our fifo.
+    // So before clearing it, we'll keep a copy of this buffer and just merge it back in.
+    this.objectPixelBackup = [];
+    this.backgroundWindowFifo.forEach((entry) => {
+      if (entry.overwrittenBySprite) {
+        this.objectPixelBackup.push(entry);
+      } else {
+        this.objectPixelBackup.push(null);
+      }
+    });
     this.backgroundWindowFifo.length = 0;
+    this.renderingWindow = true;
     this.currentXIndex = 0;
     this.currentStepIndex = 0;
     this.currentDotForStep = 0;
@@ -456,7 +484,7 @@ class RenderPipeline {
     // check for objects
     // in the beginning of a line we might have to wait until the background
     // buffer got filled up
-    // Not sure if this is the right behaviour but we'll let the buffer fill up first
+    // Not sure if this is the right behavior but we'll let the buffer fill up first
 
     // Check if we need to flip to window rendering
     const windowEnabled = ((this.getPPUInfo().LCDC_ff40 >> 5) & 0x1) === 1;
