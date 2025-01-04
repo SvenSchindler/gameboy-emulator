@@ -7455,6 +7455,10 @@ var BackgroundWindowPixelFetcher = /** @class */ (function () {
         this.currentWindowLine = 0;
         // Once we hit a window coordinate, this flag will get flipped and we'll just render the window from now on.
         this.renderingWindow = false;
+        // We clear the background buffer when switching to window mode which might accidentally
+        // remove object pixels. We keep a backup of the object pixels and merge them back into
+        // the window buffer.
+        this.objectPixelBackup = [];
         // We need at least 8 elements for object merging at any time
         this.minElementsInBackgroundFifo = 8;
     }
@@ -7530,6 +7534,17 @@ var BackgroundWindowPixelFetcher = /** @class */ (function () {
                 { colorIndex: color6 },
                 { colorIndex: color7 },
             ];
+            // Maybe merge already fetched objects back into the window fifo.
+            // Todo: in theory, we'd have to double check the object priority for the new
+            // window value but this is so unlikely that I can't be bothered :)
+            if (this.isFetchingWindow() && this.objectPixelBackup.length > 0) {
+                for (var i = 0; i < tmpPixels.length; i++) {
+                    var entry = this.objectPixelBackup.shift();
+                    if (entry != null) {
+                        tmpPixels[i] = entry;
+                    }
+                }
+            }
             if (this.backgroundWindowFifo.length <= this.minElementsInBackgroundFifo) {
                 (_a = this.backgroundWindowFifo).push.apply(_a, tmpPixels);
                 pushStepDone = true;
@@ -7590,8 +7605,20 @@ var BackgroundWindowPixelFetcher = /** @class */ (function () {
         return this.renderingWindow;
     };
     BackgroundWindowPixelFetcher.prototype.switchToWindowRendering = function () {
-        this.renderingWindow = true;
+        var _this = this;
+        // There's a tricky edge case where we've already merged some object data into our fifo.
+        // So before clearing it, we'll keep a copy of this buffer and just merge it back in.
+        this.objectPixelBackup = [];
+        this.backgroundWindowFifo.forEach(function (entry) {
+            if (entry.overwrittenBySprite) {
+                _this.objectPixelBackup.push(entry);
+            }
+            else {
+                _this.objectPixelBackup.push(null);
+            }
+        });
         this.backgroundWindowFifo.length = 0;
+        this.renderingWindow = true;
         this.currentXIndex = 0;
         this.currentStepIndex = 0;
         this.currentDotForStep = 0;
@@ -7629,7 +7656,7 @@ var RenderPipeline = /** @class */ (function () {
         // check for objects
         // in the beginning of a line we might have to wait until the background
         // buffer got filled up
-        // Not sure if this is the right behaviour but we'll let the buffer fill up first
+        // Not sure if this is the right behavior but we'll let the buffer fill up first
         // Check if we need to flip to window rendering
         var windowEnabled = ((this.getPPUInfo().LCDC_ff40 >> 5) & 0x1) === 1;
         if (windowEnabled &&
