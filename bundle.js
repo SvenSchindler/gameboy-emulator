@@ -2,34 +2,30 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ "./src/gameboy/apu.ts":
-/*!****************************!*\
-  !*** ./src/gameboy/apu.ts ***!
-  \****************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ "./src/gameboy/apu-v2/apu-v2.ts":
+/*!**************************************!*\
+  !*** ./src/gameboy/apu-v2/apu-v2.ts ***!
+  \**************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.APUImpl = void 0;
-/**
- * Quick and hacky APU implementation, lacks a bunch of features:
- * -> phasing not implemented
- * -> no support for proper PCM sampling (would require major refactor)
- * -> frequency change without trigger not implemented
- * -> stereo support not implemented (left/right volumes)
- * */
-var APUImpl = /** @class */ (function () {
-    function APUImpl() {
+exports.ApuV2Impl = void 0;
+var channel_1_and_2_generator_1 = __webpack_require__(/*! ./channel-1-and-2-generator */ "./src/gameboy/apu-v2/channel-1-and-2-generator.ts");
+var channel_3_generator_1 = __webpack_require__(/*! ./channel-3-generator */ "./src/gameboy/apu-v2/channel-3-generator.ts");
+var channel_4_generator_1 = __webpack_require__(/*! ./channel-4-generator */ "./src/gameboy/apu-v2/channel-4-generator.ts");
+var ApuV2Impl = /** @class */ (function () {
+    function ApuV2Impl() {
         this.audioContext = new AudioContext();
         // This is our own addition to control master volume
-        this.deafultVolume = 0.2;
-        this.volume = this.deafultVolume;
+        this.defaultVolume = 0.4;
+        this.volume = this.defaultVolume;
         // FF26 - NR52 - master audio control
-        this.NR52 = 0x00;
+        this.NR52 = 0xff;
         // FF25 - NR51 - panning
         this.NR51 = 0x00;
         // FF24 - NR50 - master volume (and vin panning which we ignore)
-        this.NR50 = 0x00;
+        this.NR50 = 0xff;
         // FF10 - NR10 Channel 1 Sweep
         this.NR10 = 0x00;
         // FF11 - NR11 Channel 1 length timer and duty cycle
@@ -69,9 +65,7 @@ var APUImpl = /** @class */ (function () {
         this.NR43 = 0x00;
         // FF23 - NR 44
         this.NR44 = 0x00;
-        this.channel4ClockShift = 0;
         this.channel4LfsrWidth = 15;
-        this.channel4ClockDivider = 0.5;
         this.envelopeTickCounter = 0;
         this.soundLengthTickCounter = 0;
         this.channel1SweepTickCounter = 0;
@@ -86,358 +80,169 @@ var APUImpl = /** @class */ (function () {
         this.channel2Samples = [];
         this.channel2SampleIndex = 0;
         this.channel2Volume = 0;
-        this.channel3Samples = [0];
-        this.channel3SampleIndex = 0;
         this.channel3Volume = 0;
         this.channel3IsOn = false;
-        this.channel3WaveSampleIndex = 0;
-        this.bufferAhead = 0.05;
         this.channel4Volume = 0;
+        this.channel4ClockShift = 0;
+        this.channel4ClockDivider = 0;
         this.channel4IsOn = false;
         // we'll apply a mini envolope to each newly triggered sound
         // these will be reset by a trigger
         this.envelopes = [0, 0, 0, 0];
-        this.channel1EnvelopModulo = 0;
-        this.channel2EnvelopModulo = 0;
-        this.channel4EnvelopModulo = 0;
-        this.sweepModulo = 0;
-        this.channel3SampleChanged = false;
+        this.globalBufferLeft = []; // max length 441
+        this.globalBufferRight = []; // max length 441
+        // This needs to be called 4194304 times per second
+        this.ticksPerSecond = 4194304;
+        this.globalTickCounter = 0;
+        this.firstBlockStartTime = 0;
+        this.samplesSubmitted = 0;
+        this.samplesGeneratedForSecond = 0;
         this.sweepPace = 0;
-        this.channel3Volumes = [0, 1, 0.5, 0.25];
-        // We're pre-generating these
-        this.channel4LfsrState = Math.pow(2, this.channel4LfsrWidth) - 1;
-        // fill our round robin audio buffers up with 0
-        for (var i = 0; i < 3 * this.audioContext.sampleRate; i++) {
-            this.mainOutSamples[i] = 0;
-        }
+        this.channel1SampleGenerator = new channel_1_and_2_generator_1.Channel1And2SampleGenerator(true);
+        this.channel2SampleGenerator = new channel_1_and_2_generator_1.Channel1And2SampleGenerator(false);
+        this.channel3SampleGenerator = new channel_3_generator_1.Channel3SampleGenerator();
+        this.channel4SampleGenerator = new channel_4_generator_1.Channel4SampleGenerator();
     }
-    APUImpl.prototype.mute = function () {
+    ApuV2Impl.prototype.mute = function () {
         this.volume = 0;
     };
-    APUImpl.prototype.unmute = function () {
-        this.volume = this.deafultVolume;
+    ApuV2Impl.prototype.unmute = function () {
+        this.volume = this.defaultVolume;
     };
-    // This is being called 1048576 times per second
-    APUImpl.prototype.tick = function () {
-        // Envelopes are ticked at 64hz, that's every 16384 cycles
-        this.envelopeTickCounter = (this.envelopeTickCounter + 1) % 16384;
-        if (this.envelopeTickCounter === 0) {
-            this.handleChannel1Envelope();
-            this.handleChannel2Envelope();
-            this.handleChannel4Envelope();
-            // Mix streams together and play audio
-            if (this.audioStartTime === 0) {
-                this.audioStartTime = this.audioContext.currentTime;
+    ApuV2Impl.prototype.tick = function () {
+        this.channel1SampleGenerator.tick();
+        this.channel2SampleGenerator.tick();
+        this.channel3SampleGenerator.tick();
+        this.channel4SampleGenerator.tick();
+        // sample rate 44100
+        // by generating a sample every 95 ticks and dropping one every 82943 we're getting very close
+        // to the sample rate
+        // (4194304 / 95) - (4194304 / 82943)
+        this.globalTickCounter = (this.globalTickCounter + 1) % this.ticksPerSecond;
+        if (this.globalTickCounter === 0) {
+            this.samplesGeneratedForSecond = 0;
+        }
+        // this creates exactly 44100 samples in 4194304 cycles
+        if (Math.floor(this.globalTickCounter / (this.ticksPerSecond / 44100)) > this.samplesGeneratedForSecond - 1) {
+            this.samplesGeneratedForSecond++;
+            // Channel 1
+            var channel1SampleLeft = 0;
+            var channel1SampleRight = 0;
+            if (((this.NR51 >> 4) & 0x1) === 0x1 && (this.NR51 & 0x1) === 0x0) {
+                // ch1 left only
+                channel1SampleLeft = this.channel1SampleGenerator.getSample();
             }
-            var time = this.audioContext.currentTime;
-            var totalTimePassed = time - this.audioStartTime;
-            var samplesToSubmit = (totalTimePassed + this.bufferAhead) * this.audioContext.sampleRate - this.totalNumberOfSamplesSubmitted;
-            if (samplesToSubmit > 0) {
-                var buffer = this.audioContext.createBuffer(1, samplesToSubmit, // check this math, seems to be way off
-                this.audioContext.sampleRate);
-                var nowBuffering = buffer.getChannelData(0);
-                // clock the noise channel based on the buffer length
-                var lfsrClockFrequencey = 262144 / (this.channel4ClockDivider * (1 << this.channel4ClockShift)); // 1048576 / 4 = 262144
-                var samplesAfterWeNeedToClock = Math.round(this.audioContext.sampleRate / lfsrClockFrequencey); // Todo: for very fast lfsr clocks we need to sample multiple times per sample
-                var numberOfClocksPerSample = 1;
-                if (samplesAfterWeNeedToClock === 0) {
-                    numberOfClocksPerSample = Math.round(lfsrClockFrequencey / this.audioContext.sampleRate);
-                }
-                for (var i = 0; i < buffer.length; i++) {
-                    // combine audio channels into main channel
-                    this.mainOutSamples[this.mainOutSampleIndex] = 0;
-                    // channel 1
-                    if (this.channel1Samples[this.channel1SampleIndex]) {
-                        this.mainOutSamples[this.mainOutSampleIndex] =
-                            this.mainOutSamples[this.mainOutSampleIndex] +
-                                this.channel1Samples[this.channel1SampleIndex] * (this.channel1Volume / 15 / 4) * this.envelopes[0];
-                    }
-                    this.channel1SampleIndex = (this.channel1SampleIndex + 1) % this.channel1Samples.length;
-                    // channel 2
-                    if (this.channel2Samples[this.channel2SampleIndex]) {
-                        this.mainOutSamples[this.mainOutSampleIndex] =
-                            this.mainOutSamples[this.mainOutSampleIndex] +
-                                this.channel2Samples[this.channel2SampleIndex] * (this.channel2Volume / 15 / 4) * this.envelopes[1];
-                    }
-                    this.channel2SampleIndex = (this.channel2SampleIndex + 1) % this.channel2Samples.length;
-                    // channel 3
-                    if (this.channel3IsOn) {
-                        var nextSample = this.channel3Samples[this.channel3SampleIndex];
-                        this.mainOutSamples[this.mainOutSampleIndex] =
-                            this.mainOutSamples[this.mainOutSampleIndex] +
-                                nextSample * (this.channel3Volume / 4) * 0.6 * this.envelopes[2];
-                    }
-                    this.channel3SampleIndex = (this.channel3SampleIndex + 1) % this.channel3Samples.length;
-                    // channel 4
-                    if (this.channel4IsOn) {
-                        // one lfsr clock spans multiple samples
-                        if (samplesAfterWeNeedToClock > 0) {
-                            this.noiseChannelClockIncreaseCounter =
-                                (this.noiseChannelClockIncreaseCounter + 1) % samplesAfterWeNeedToClock;
-                            if (this.noiseChannelClockIncreaseCounter === 0) {
-                                this.getNextLFSRSample(); // this will clock it.
-                            }
-                        }
-                        else {
-                            // one sample clocks the lfsr multiple times
-                            for (var i_1 = 0; i_1 < numberOfClocksPerSample; i_1++) {
-                                this.getNextLFSRSample();
-                            }
-                        }
-                        var noiseOuput = this.channel4LfsrState & 1;
-                        this.mainOutSamples[this.mainOutSampleIndex] =
-                            this.mainOutSamples[this.mainOutSampleIndex] +
-                                noiseOuput * (this.channel4Volume / 15 / 4) * this.envelopes[3];
-                    }
-                    // copy main samples into buffer
-                    nowBuffering[i] = this.mainOutSamples[this.mainOutSampleIndex] * this.volume;
-                    this.mainOutSampleIndex = (this.mainOutSampleIndex + 1) % this.mainOutSamples.length;
-                    // not really needed
-                    for (var i_2 = 0; i_2 < this.envelopes.length; i_2++) {
-                        if (this.envelopes[i_2] < 1) {
-                            this.envelopes[i_2] = this.envelopes[i_2] + 1;
-                        }
-                    }
-                }
-                var source = this.audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(this.audioContext.destination);
-                // one blob should be played for 1/64 of a second
-                var nextTime = this.audioStartTime + this.totalNumberOfSamplesSubmitted / this.audioContext.sampleRate;
-                source.start(nextTime);
-                this.totalNumberOfSamplesSubmitted += samplesToSubmit;
-            }
-        }
-        // Sound length ticks at 256 hz which means every 4096 ticks
-        this.soundLengthTickCounter = (this.soundLengthTickCounter + 1) % 4096;
-        if (this.soundLengthTickCounter === 0) {
-            this.handleChannel1Length();
-            this.handleChannel2Length();
-            this.handleChannel3Length();
-            this.handleChannel4Length();
-        }
-        // Channel 1 sweep ticks at 128 hz, so every 8192 ticks
-        this.channel1SweepTickCounter = (this.channel1SweepTickCounter + 1) % 8192;
-        if (this.channel1SweepTickCounter === 0) {
-            this.hanldeChannel1Sweep();
-            this.deleteMe();
-        }
-    };
-    APUImpl.prototype.handleChannel1Envelope = function () {
-        var sweepPace = this.NR12 & 7;
-        if (sweepPace === 0) {
-            return;
-        }
-        if (this.channel1EnvelopModulo === 0) {
-            var envelopeDirection = ((this.NR12 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
-            if (envelopeDirection === "INCREASE" && this.channel1Volume < 15) {
-                this.channel1Volume++;
-            }
-            else if (envelopeDirection === "DECREASE" && this.channel1Volume > 0) {
-                this.channel1Volume--;
-            }
-        }
-        this.channel1EnvelopModulo = (this.channel1EnvelopModulo + 1) % sweepPace;
-    };
-    APUImpl.prototype.handleChannel2Envelope = function () {
-        var sweepPace = this.NR22 & 7;
-        if (sweepPace === 0) {
-            return;
-        }
-        if (this.channel2EnvelopModulo === 0) {
-            var envelopeDirection = ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
-            if (envelopeDirection === "INCREASE" && this.channel2Volume < 15) {
-                this.channel2Volume++;
-            }
-            else if (envelopeDirection === "DECREASE" && this.channel2Volume > 0) {
-                this.channel2Volume--;
-            }
-        }
-        this.channel2EnvelopModulo = (this.channel2EnvelopModulo + 1) % sweepPace;
-    };
-    APUImpl.prototype.handleChannel4Envelope = function () {
-        var sweepPace = this.NR42 & 7;
-        if (sweepPace === 0) {
-            return;
-        }
-        if (this.channel4EnvelopModulo === 0) {
-            var envelopeDirection = ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
-            if (envelopeDirection === "INCREASE" && this.channel4Volume < 15) {
-                this.channel4Volume++;
-            }
-            else if (envelopeDirection === "DECREASE" && this.channel4Volume > 0) {
-                this.channel4Volume--;
-            }
-        }
-        this.channel4EnvelopModulo = (this.channel4EnvelopModulo + 1) % sweepPace;
-    };
-    APUImpl.prototype.handleChannel1Length = function () {
-        var lengthEnable = (this.NR14 >> 6) & 0x1;
-        if (!lengthEnable) {
-            return;
-        }
-        var channel1Length = this.NR11 & 63;
-        channel1Length++;
-        if (channel1Length >= 64) {
-            // cut off channel
-            this.channel1Samples = [0];
-            this.channel1SampleIndex = 0;
-        }
-        this.NR11 = (this.NR11 & 0) | (channel1Length & 63);
-    };
-    APUImpl.prototype.handleChannel2Length = function () {
-        var lengthEnable = (this.NR24 >> 6) & 0x1;
-        if (!lengthEnable) {
-            return;
-        }
-        var channel2Length = this.NR21 & 63;
-        channel2Length++;
-        if (channel2Length >= 64) {
-            // cut off channel
-            this.channel2Samples = [0];
-            this.channel2SampleIndex = 0;
-        }
-        this.NR21 = (this.NR21 & 0) | (channel2Length & 63);
-    };
-    // 8 bit length for channel 3 in contrast to the others
-    APUImpl.prototype.handleChannel3Length = function () {
-        var lengthEnable = (this.NR34 >> 6) & 0x1;
-        if (!lengthEnable) {
-            return;
-        }
-        var channel3Length = this.NR31;
-        channel3Length++;
-        if (channel3Length >= 64) {
-            // cut off channel
-            this.channel3IsOn = false;
-        }
-        this.NR31 = channel3Length & 0xff;
-    };
-    APUImpl.prototype.handleChannel4Length = function () {
-        var lengthEnable = (this.NR44 >> 6) & 0x1;
-        if (!lengthEnable) {
-            return;
-        }
-        var channel4Length = this.NR41 & 63;
-        channel4Length++;
-        if (channel4Length >= 64) {
-            // cut off channel
-            this.channel4IsOn = false;
-        }
-        this.NR41 = (this.NR41 & 0) | (channel4Length & 63);
-    };
-    APUImpl.prototype.hanldeChannel1Sweep = function () {
-        // Number of iterations in 128 hz ticks (7.8 ms), field not re-read until finished!
-        // 0 written to 0, sweep instantly stops
-        if (this.sweepPace === 0) {
-            return;
-        }
-        if (this.sweepModulo === 0) {
-            var step = this.NR10 & 7;
-            var direction = ((this.NR10 >> 3) & 0x1) === 0x0 ? "UP" : "DOWN";
-            var period = ((this.NR14 & 7) << 8) | (this.NR13 & 0xff);
-            if (direction === "UP") {
-                console.log("up");
-                period = period + period / (1 << step);
+            else if (((this.NR51 >> 4) & 0x1) === 0x0 && (this.NR51 & 0x1) === 0x1) {
+                // right only
+                channel1SampleRight = this.channel1SampleGenerator.getSample();
             }
             else {
-                period = period - period / (1 << step);
+                // both
+                channel1SampleLeft = this.channel1SampleGenerator.getSample();
+                channel1SampleRight = this.channel1SampleGenerator.getSample();
             }
-            if (period > 0x7ff || period <= 0) {
-                // switch off channel
-                this.channel1Samples = [0];
-                this.channel1SampleIndex = 0;
-                return;
+            // Channel 2
+            var channel2SampleLeft = 0;
+            var channel2SampleRight = 0;
+            // left
+            if (((this.NR51 >> 5) & 0x1) === 0x1 && ((this.NR51 >> 1) & 0x1) === 0x0) {
+                // ch2 left only
+                channel2SampleLeft = this.channel2SampleGenerator.getSample();
             }
-            // write back period
-            this.NR13 = period & 0xff;
-            this.NR14 = (this.NR14 & 248) | (period >> 8);
-            this.updateChannel1Samples(period);
+            else if (((this.NR51 >> 5) & 0x1) === 0x0 && ((this.NR51 >> 1) & 0x1) === 0x1) {
+                // ch2 right only
+                channel2SampleRight = this.channel2SampleGenerator.getSample();
+            }
+            else {
+                channel2SampleLeft = this.channel2SampleGenerator.getSample();
+                channel2SampleRight = this.channel2SampleGenerator.getSample();
+            }
+            // Channel 3
+            var channel3SampleLeft = 0;
+            var channel3SampleRight = 0;
+            // left
+            if (((this.NR51 >> 6) & 0x1) === 0x1 && ((this.NR51 >> 2) & 0x1) === 0x0) {
+                // ch3 left on?
+                channel3SampleLeft = this.channel3SampleGenerator.getSample();
+            }
+            else if (((this.NR51 >> 6) & 0x1) === 0x0 && ((this.NR51 >> 2) & 0x1) === 0x1) {
+                // ch3 right on?
+                channel3SampleRight = this.channel3SampleGenerator.getSample();
+            }
+            else {
+                channel3SampleLeft = this.channel3SampleGenerator.getSample();
+                channel3SampleRight = this.channel3SampleGenerator.getSample();
+            }
+            // channel 3 is a bit quieter than the other ones on the real game boy
+            var channel3VolumeFactor = 0.7;
+            channel3SampleLeft = channel3SampleLeft * channel3VolumeFactor;
+            channel3SampleRight = channel3SampleRight * channel3VolumeFactor;
+            // Channel 4
+            var channel4SampleLeft = 0;
+            var channel4SampleRight = 0;
+            // left
+            if (((this.NR51 >> 6) & 0x1) === 0x1 && ((this.NR51 >> 2) & 0x1) === 0x0) {
+                // ch3 left on?
+                channel4SampleLeft = this.channel4SampleGenerator.getSample();
+            }
+            else if (((this.NR51 >> 6) & 0x1) === 0x0 && ((this.NR51 >> 2) & 0x1) === 0x1) {
+                // ch3 right on?
+                channel4SampleRight = this.channel4SampleGenerator.getSample();
+            }
+            else {
+                channel4SampleLeft = this.channel4SampleGenerator.getSample();
+                channel4SampleRight = this.channel4SampleGenerator.getSample();
+            }
+            // channel 4 can be a bit too sharp so we're just making it a bit quieter
+            var channel4VolumeFactor = 0.6;
+            channel4SampleLeft = channel4SampleLeft * channel4VolumeFactor;
+            channel4SampleRight = channel4SampleRight * channel4VolumeFactor;
+            this.globalBufferLeft.push((channel1SampleLeft + channel2SampleLeft + channel3SampleLeft + channel4SampleLeft) / 4);
+            this.globalBufferRight.push((channel1SampleRight + channel2SampleRight + channel3SampleRight + channel4SampleRight) / 4);
         }
-        this.sweepModulo = (this.sweepModulo + 1) % this.sweepPace;
+        // Copy audio to audio buffer
+        var leftVolume = (((this.NR50 >> 4) & 7) / 7) * this.defaultVolume;
+        var rightVolume = ((this.NR50 & 7) / 7) * this.defaultVolume;
+        // This gets called exactly 100 times per second (we should do this based on tick count)
+        if (this.globalBufferLeft.length === 441) {
+            // submit samples
+            var buffer = this.audioContext.createBuffer(2, // channel left + right
+            this.globalBufferLeft.length, 44100);
+            // we should probably directly copy into the buffer
+            // Fill left buffer
+            var bufferDataLeft = buffer.getChannelData(0);
+            for (var i = 0; i < this.globalBufferLeft.length; i++) {
+                bufferDataLeft[i] = this.globalBufferLeft[i] * leftVolume;
+            }
+            // Fill right buffer
+            var bufferDataRight = buffer.getChannelData(1);
+            for (var i = 0; i < this.globalBufferRight.length; i++) {
+                bufferDataRight[i] = this.globalBufferRight[i] * rightVolume;
+            }
+            var source = this.audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(this.audioContext.destination);
+            // First block
+            if (this.samplesSubmitted === 0 ||
+                this.firstBlockStartTime + this.samplesSubmitted / 44100 < this.audioContext.currentTime) {
+                this.samplesSubmitted = 0;
+                this.firstBlockStartTime = this.audioContext.currentTime + 2 / 1000; // 2ms into the future
+            }
+            // each block has a 10ms size
+            if (this.isApuEnabled()) {
+                source.start(this.firstBlockStartTime + this.samplesSubmitted / 44100);
+                // we'll stop the source to avoid overlaps
+                source.stop(this.firstBlockStartTime + (this.samplesSubmitted + 440) / 44100);
+            }
+            this.samplesSubmitted += 441; // we're rounding here to keep things simple
+            // reset buffers
+            this.globalBufferLeft.length = 0;
+            this.globalBufferRight.length = 0;
+        }
     };
-    APUImpl.prototype.updateChannel1Samples = function (period) {
-        var pediodLength = 2048 - period;
-        // 1048576 / 8 because 8 samples per wave form
-        var frequency = 1048576 / 8 / pediodLength;
-        var sampleRate = this.audioContext.sampleRate;
-        var samplesPerWave = sampleRate / frequency;
-        this.channel1Samples = [];
-        this.channel1SampleIndex = 0;
-        // we could also implement a ring buffer here
-        for (var i = 0; i < samplesPerWave; i++) {
-            // audio needs to be in [-1.0; 1.0]
-            // Todo: for now we're just using a perfect square wave to keeps things simple,
-            // in reality, these could have different phases, based on 0xFF11.
-            this.channel1Samples[i] = Math.round(i / samplesPerWave) * 2 - 1;
-        }
-    };
-    APUImpl.prototype.updateChannel2Samples = function (period) {
-        var pediodLength = 2048 - period;
-        // 1048576 / 8 because 8 samples per wave form
-        var frequency = 1048576 / 8 / pediodLength;
-        var sampleRate = this.audioContext.sampleRate;
-        var samplesPerWave = sampleRate / frequency;
-        this.channel2Samples = [];
-        this.channel2SampleIndex = 0;
-        // we could also implement a ring buffer here
-        for (var i = 0; i < samplesPerWave; i++) {
-            // audio needs to be in [-1.0; 1.0]
-            // Todo: for now we're just using a perfect square wave,
-            // same as for channel 1
-            this.channel2Samples[i] = Math.round(i / samplesPerWave) * 2 - 1;
-        }
-    };
-    // We're not fully supporting PCM here since that would require a
-    // major refactoring of the entire audio playback to keep all
-    // channels in sync.
-    APUImpl.prototype.updateChannel3Samples = function (period) {
-        this.channel3Samples = [0, 0];
-        this.channel3SampleIndex = 1; // wave usually starts at 1
-        var frequency = 65536 / (2048 - period);
-        var samplesRequired = this.audioContext.sampleRate / frequency;
-        for (var i = 0; i < samplesRequired; i++) {
-            // 32 samples
-            var sampleIndex = (31 / samplesRequired) * i;
-            var sample = this.getChannel3WaveSampleAtIndex(i);
-            this.channel3Samples[i] = sample;
-        }
-    };
-    APUImpl.prototype.deleteMe = function () {
-        if (!this.channel3SampleChanged) {
-            return;
-        }
-        var outputLevel = (this.NR32 >> 5) & 3;
-        this.channel3Volume = this.channel3Volumes[outputLevel];
-        var period = ((this.NR34 & 7) << 8) | (this.NR33 & 0xff);
-        this.channel3Samples = [0, 0];
-        var frequency = 65536 / (2048 - period);
-        var samplesRequired = this.audioContext.sampleRate / frequency;
-        for (var i = 0; i < samplesRequired; i++) {
-            // 32 samples
-            var sampleIndex = (31 / samplesRequired) * i;
-            var sample = this.getChannel3WaveSampleAtIndex(i);
-            this.channel3Samples[i] = sample;
-        }
-        if (this.channel3SampleIndex >= samplesRequired) {
-            this.channel3SampleIndex = 1;
-        }
-    };
-    APUImpl.prototype.getChannel3WaveSampleAtIndex = function (index) {
-        var channel3WavePattern = this.FE30toFE3F;
-        var nibble = index % 2 === 0 ? "HIGH" : "LOW";
-        var sample = 0;
-        if (nibble === "HIGH") {
-            sample = channel3WavePattern[Math.round(index / 2)] >> 4;
-        }
-        else {
-            sample = channel3WavePattern[Math.round(index / 2)] & 0xf;
-        }
-        return (sample / 15) * 2 - 1; // move it so that it's between -1 and 1
-    };
-    APUImpl.prototype.writeAudioMasterControl = function (value) {
+    ApuV2Impl.prototype.writeAudioMasterControl = function (value) {
         // only the global on off bit is writeable, the rest is read only
-        this.NR52 = this.NR52 | (value & 64);
+        this.NR52 = this.NR52 | (value & 128);
         if (((value >> 7) & 0x1) === 0x1) {
             console.log("master audio switched on");
         }
@@ -445,49 +250,31 @@ var APUImpl = /** @class */ (function () {
             console.log("master audio switched off");
         }
     };
-    APUImpl.prototype.readAudioMasterControl = function () {
+    ApuV2Impl.prototype.isApuEnabled = function () {
+        return ((this.NR52 >> 7) & 0x1) === 0x1;
+    };
+    ApuV2Impl.prototype.readAudioMasterControl = function () {
         return this.NR52;
     };
-    APUImpl.prototype.writeAudioChannelPanning = function (value) {
+    ApuV2Impl.prototype.writeAudioChannelPanning = function (value) {
         this.NR51 = value & 0xff;
-        // mute channels if panning is off on both sides
-        // channel 1
-        // right && left
-        if (!(this.NR51 & 1) && !(this.NR51 & 16)) {
-            this.channel1Volume = 0;
-        }
-        // channel 2
-        // right && left
-        if (!(this.NR51 & 2) && !(this.NR51 & 32)) {
-            this.channel2Volume = 0;
-        }
-        // channel 3
-        // right && left
-        if (!(this.NR51 & 4) && !(this.NR51 & 64)) {
-            this.channel3Volume = 0;
-        }
-        // channel 4
-        // right && left
-        if (!(this.NR51 & 8) && !(this.NR51 & 128)) {
-            this.channel4Volume = 0;
-        }
     };
-    APUImpl.prototype.readAudioChannelPanning = function () {
+    ApuV2Impl.prototype.readAudioChannelPanning = function () {
         return this.NR51;
     };
-    APUImpl.prototype.writeMasterVolume = function (value) {
+    ApuV2Impl.prototype.writeMasterVolume = function (value) {
         this.NR50 = value & 0xff;
     };
-    APUImpl.prototype.readMasterVolume = function () {
+    ApuV2Impl.prototype.readMasterVolume = function () {
         return this.NR50;
     };
-    APUImpl.prototype.getVolumeRight = function () {
+    ApuV2Impl.prototype.getVolumeRight = function () {
         return this.NR50 & 7;
     };
-    APUImpl.prototype.getVolumeLeft = function () {
+    ApuV2Impl.prototype.getVolumeLeft = function () {
         return (this.NR50 >> 4) & 7;
     };
-    APUImpl.prototype.writeChannel1Sweep = function (value) {
+    ApuV2Impl.prototype.writeChannel1Sweep = function (value) {
         this.NR10 = value & 0xff;
         // const step = this.NR10 & 0b111;
         // const direction: SweepDirection = this.NR10 >> 3 === 0x0 ? "UP" : "DOWN";
@@ -496,225 +283,683 @@ var APUImpl = /** @class */ (function () {
         var pace = (this.NR10 >> 4) & 7;
         this.sweepPace = pace;
     };
-    APUImpl.prototype.readChannel1Sweep = function () {
+    ApuV2Impl.prototype.readChannel1Sweep = function () {
         return this.NR10;
     };
-    APUImpl.prototype.writeChannel1LengthAndDuty = function (value) {
+    ApuV2Impl.prototype.writeChannel1LengthAndDuty = function (value) {
         this.NR11 = value & 0xff;
         // the higher the value the shorter before the signal is cut
         // write only
         // Other fields (not used in this function):
-        // const initialLength = this.NR11 & 0b111111;
-        // const waveDuty = (this.NR11 >> 6) & 0b11;
+        var initialLength = this.NR11 & 63;
+        this.channel1SampleGenerator.setInitialLength(initialLength);
+        var waveDuty = (this.NR11 >> 6) & 3;
+        this.channel1SampleGenerator.setDutyCycle(waveDuty);
     };
-    APUImpl.prototype.readChannel1Duty = function () {
+    ApuV2Impl.prototype.readChannel1Duty = function () {
         // the initial length timer is write only
         return this.NR11 & 192;
     };
-    APUImpl.prototype.writeChannel1VolumeAndEnvelope = function (value) {
+    ApuV2Impl.prototype.writeChannel1VolumeAndEnvelope = function (value) {
         this.NR12 = value & 0xff;
         // Other fields (not used in this function):
-        // const sweepPace = this.NR12 & 0b111;
-        // const envelopeDirection: EnvelopeDirection =
-        //   ((this.NR12 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
-        // // not updated by envelope
-        // const initialVolume = (this.NR12 >> 4) & 0b1111;
+        var sweepPace = this.NR12 & 7;
+        this.channel1SampleGenerator.setEnvelopeSweepPace(sweepPace);
+        var envelopeDirection = ((this.NR12 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+        this.channel1SampleGenerator.setEnvelopeDirection(envelopeDirection);
+        // not updated by envelope
+        var initialVolume = (this.NR12 >> 4) & 15;
+        this.channel1SampleGenerator.setEnvelopeInitialVolume(initialVolume);
+        // Turn off if env direction is down and initial length is zero
+        if (this.NR12 >> 3 === 0) {
+            this.channel1SampleGenerator.turnOff();
+        }
     };
-    APUImpl.prototype.readChannel1VolumeAndEnvelope = function () {
+    ApuV2Impl.prototype.readChannel1VolumeAndEnvelope = function () {
         return this.NR12;
     };
-    APUImpl.prototype.writeChannel1PeriodLow = function (value) {
+    ApuV2Impl.prototype.writeChannel1PeriodLow = function (value) {
         this.NR13 = value & 0xff;
-        // Todo: normally we should update the period here too
+        var period = ((this.NR14 & 7) << 8) | (this.NR13 & 0xff);
+        this.channel1SampleGenerator.setPeriod(period);
     };
-    APUImpl.prototype.writeChannel1PeriodHighAndControl = function (value) {
+    ApuV2Impl.prototype.writeChannel1PeriodHighAndControl = function (value) {
         this.NR14 = value & 0xff;
         var trigger = (this.NR14 >> 7) & 0x1;
+        var period = ((this.NR14 & 7) << 8) | (this.NR13 & 0xff);
+        this.channel1SampleGenerator.setPeriod(period);
+        var lengthEnabled = ((value >> 6) & 0x1) === 0x1;
+        this.channel1SampleGenerator.setLengthEnabled(lengthEnabled);
         if (trigger) {
-            this.envelopes[0] = 0;
-            var initialVolume = (this.NR12 >> 4) & 15;
-            this.channel1Volume = initialVolume;
-            var period = ((this.NR14 & 7) << 8) | (this.NR13 & 0xff);
-            this.updateChannel1Samples(period);
+            var sweepPace = (this.NR10 >> 4) & 7;
+            var sweepDirection = ((this.NR10 >> 3) & 0x1) === 0x1 ? "DOWN" : "UP";
+            var sweepIndividualStep = this.NR10 & 7;
+            this.channel1SampleGenerator.trigger({ sweepPace: sweepPace, sweepDirection: sweepDirection, sweepIndividualStep: sweepIndividualStep });
         }
-        // Todo: we should always update the period here but that would require
-        // a different buffer handling approach.
     };
-    APUImpl.prototype.readChannel1LengthEnable = function () {
+    ApuV2Impl.prototype.readChannel1LengthEnable = function () {
         // trigger and period are write only values
         return this.NR14 & 64;
     };
-    APUImpl.prototype.writeChannel2LengthAndDuty = function (value) {
+    ApuV2Impl.prototype.writeChannel2LengthAndDuty = function (value) {
         this.NR21 = value & 0xff;
         // the higher the value the shorter before the signal is cut
         // write only
         // Other fields (not used in this function):
-        // const initialLength = this.NR21 & 0b111111;
-        // const waveDuty = (this.NR21 >> 6) & 0b11;
-        // console.log(`Channel one length ${initialLength}, wave duty: ${waveDuty}`);
+        var initialLength = this.NR21 & 63;
+        this.channel2SampleGenerator.setInitialLength(initialLength);
+        var waveDuty = (this.NR21 >> 6) & 3;
+        this.channel2SampleGenerator.setDutyCycle(waveDuty);
     };
-    APUImpl.prototype.readChannel2Duty = function () {
+    ApuV2Impl.prototype.readChannel2Duty = function () {
         // the initial length timer is write only
         return this.NR21 & 192;
     };
-    APUImpl.prototype.writeChannel2VolumeAndEnvelope = function (value) {
+    ApuV2Impl.prototype.writeChannel2VolumeAndEnvelope = function (value) {
         this.NR22 = value & 0xff;
+        // Other fields (not used in this function):
         var sweepPace = this.NR22 & 7;
+        this.channel2SampleGenerator.setEnvelopeSweepPace(sweepPace);
         var envelopeDirection = ((this.NR22 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
-        // Other fields (not used in this function):
+        this.channel2SampleGenerator.setEnvelopeDirection(envelopeDirection);
         // not updated by envelope
-        // const initialVolume = (this.NR22 >> 4) & 0b1111;
-    };
-    APUImpl.prototype.readChannel2VolumeAndEnvelope = function () {
-        return this.NR22;
-    };
-    APUImpl.prototype.writeChannel2PeriodLow = function (value) {
-        this.NR23 = value & 0xff;
-        // Other fields (not used in this function):
-        // const periodBitsLow = this.NR23;
-    };
-    APUImpl.prototype.writeChannel2PeriodHighAndControl = function (value) {
-        this.NR24 = value & 0xff;
-        var trigger = (this.NR24 >> 7) & 0x1;
-        // any value triggers this channel
-        if (trigger) {
-            // console.log('channel 2 triggred');
-            this.envelopes[1] = 0;
-            var period = ((this.NR24 & 7) << 8) | (this.NR23 & 0xff);
-            var initialVolume = (this.NR22 >> 4) & 15;
-            this.channel2Volume = initialVolume;
-            // Todo: this should just be the same as 2048 - period value
-            // const periodLenghtInTicks = signedFrom11Bits(period);
-            this.updateChannel2Samples(period);
+        var initialVolume = (this.NR22 >> 4) & 15;
+        this.channel2SampleGenerator.setEnvelopeInitialVolume(initialVolume);
+        // Turn off if env direction is down and initial length is zero
+        if (this.NR22 >> 3 === 0) {
+            this.channel2SampleGenerator.turnOff();
         }
     };
-    APUImpl.prototype.readChannel2LengthEnable = function () {
+    ApuV2Impl.prototype.readChannel2VolumeAndEnvelope = function () {
+        return this.NR22;
+    };
+    ApuV2Impl.prototype.writeChannel2PeriodLow = function (value) {
+        this.NR23 = value & 0xff;
+        var period = ((this.NR24 & 7) << 8) | (this.NR23 & 0xff);
+        this.channel2SampleGenerator.setPeriod(period);
+    };
+    ApuV2Impl.prototype.writeChannel2PeriodHighAndControl = function (value) {
+        this.NR24 = value & 0xff;
+        var trigger = (this.NR24 >> 7) & 0x1;
+        var period = ((this.NR24 & 7) << 8) | (this.NR23 & 0xff);
+        this.channel2SampleGenerator.setPeriod(period);
+        var lengthEnabled = ((value >> 6) & 0x1) === 0x1;
+        this.channel2SampleGenerator.setLengthEnabled(lengthEnabled);
+        if (trigger) {
+            this.channel2SampleGenerator.trigger();
+        }
+    };
+    ApuV2Impl.prototype.readChannel2LengthEnable = function () {
         // trigger and period are write only values
         return this.NR24 & 64;
     };
     // Channel 3, custom wave
     // FF1A - NR 30 DAC on/off
-    APUImpl.prototype.writeChannel3DACOnOff = function (value) {
+    ApuV2Impl.prototype.writeChannel3DACOnOff = function (value) {
         this.NR30 = value & 0x8;
         if ((this.NR30 >> 7 && 1) === 1) {
-            this.channel3IsOn = true;
+            this.channel3SampleGenerator.enable();
         }
         else {
-            this.channel3IsOn = false;
-            this.channel3Volume = 0;
+            this.channel3SampleGenerator.disable();
         }
     };
-    APUImpl.prototype.readChannel3DACOnOff = function () {
+    ApuV2Impl.prototype.readChannel3DACOnOff = function () {
         return this.NR30 & 0x8;
     };
     // FF1B - NR 31 length timer / write only
-    APUImpl.prototype.writeChannel3LengthTimer = function (value) {
+    ApuV2Impl.prototype.writeChannel3LengthTimer = function (value) {
         this.NR31 = value & 0xff;
+        this.channel3SampleGenerator.setInitialLength(this.NR31);
     };
     // FF1C - NR 32 output level
-    APUImpl.prototype.writeChannel3OutputLevel = function (value) {
+    ApuV2Impl.prototype.writeChannel3OutputLevel = function (value) {
         this.NR32 = value & 0xff;
         var outputLevel = (this.NR32 >> 5) & 3;
-        this.channel3Volume = this.channel3Volumes[outputLevel];
+        var channel3Volumes = [0, 1, 0.5, 0.25];
+        this.channel3SampleGenerator.setVolume(channel3Volumes[outputLevel]);
     };
-    APUImpl.prototype.readChannel3OutputLevel = function () {
+    ApuV2Impl.prototype.readChannel3OutputLevel = function () {
         return this.NR32;
     };
     // FF1D - NR 33 channel 3 period low
-    APUImpl.prototype.writeChannel3PeriodLow = function (value) {
+    ApuV2Impl.prototype.writeChannel3PeriodLow = function (value) {
         this.NR33 = value & 0xff;
+        var period = ((this.NR34 & 7) << 8) | (this.NR33 & 0xff);
+        this.channel3SampleGenerator.setPeriod(period);
     };
     // FF1E - NR34 channel 3 period high and control
-    APUImpl.prototype.writeChannel3PeriodHighAndControl = function (value) {
+    ApuV2Impl.prototype.writeChannel3PeriodHighAndControl = function (value) {
         this.NR34 = value & 0xff;
-        var trigger = (this.NR34 >> 7) & 0x1;
-        // any value triggers this channel
+        var trigger = ((this.NR34 >> 7) & 0x1) === 0x1;
+        var period = ((this.NR34 & 7) << 8) | (this.NR33 & 0xff);
+        this.channel3SampleGenerator.setPeriod(period);
+        var lengthEnabled = ((value >> 6) & 0x1) === 0x1;
+        this.channel3SampleGenerator.setLengthEnabled(lengthEnabled);
         if (trigger) {
-            // console.log('channel 3 triggred');
-            this.envelopes[2] = 0;
-            var period = ((this.NR34 & 7) << 8) | (this.NR33 & 0xff);
-            var outputLevel = (this.NR32 >> 5) & 3;
-            this.channel3Volume = this.channel3Volumes[outputLevel];
-            this.channel3IsOn = true;
-            this.channel3WaveSampleIndex = 1;
-            this.updateChannel3Samples(period);
+            this.channel3SampleGenerator.trigger();
         }
     };
-    APUImpl.prototype.readChannel3Control = function () {
+    ApuV2Impl.prototype.readChannel3Control = function () {
         return this.NR34 & 64;
     };
     // FF30-FF3F 16 bytes wave pattern
-    APUImpl.prototype.writeChannel3WavePattern = function (address, value) {
-        this.channel3SampleChanged = true;
-        // todo: put this back in
+    ApuV2Impl.prototype.writeChannel3WavePattern = function (address, value) {
         this.FE30toFE3F[address] = value & 0xff;
+        this.channel3SampleGenerator.setSamples(this.FE30toFE3F);
     };
-    APUImpl.prototype.readChannel3WavePattern = function (address) {
+    ApuV2Impl.prototype.readChannel3WavePattern = function (address) {
         return this.FE30toFE3F[address];
     };
-    APUImpl.prototype.getNextChannel3WaveSample = function () {
-        var channel3WavePattern = this.FE30toFE3F;
-        var nibble = this.channel3WaveSampleIndex % 2 === 0 ? "HIGH" : "LOW";
-        var sample = 0;
-        if (nibble === "HIGH") {
-            sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] >> 4;
-        }
-        else {
-            sample = channel3WavePattern[Math.round(this.channel3WaveSampleIndex / 2)] & 0xf;
-        }
-        sample = (sample / 15) * 2 - 1; // move it so that it's between -1 and 1
-        this.channel3WaveSampleIndex = (this.channel3WaveSampleIndex + 1) % 32; // 32 samples in the buffer
-        return sample;
-    };
     // Channel 4, noise channel
-    APUImpl.prototype.writeChannel4Length = function (value) {
+    ApuV2Impl.prototype.writeChannel4Length = function (value) {
         this.NR41 = value & 63;
+        this.channel4SampleGenerator.setInitialLengthTimer(this.NR41);
     };
-    APUImpl.prototype.writeChannel4VolumeAndEnvelope = function (value) {
+    ApuV2Impl.prototype.writeChannel4VolumeAndEnvelope = function (value) {
         this.NR42 = value & 0xff;
         var sweepPace = this.NR42 & 7;
+        this.channel4SampleGenerator.setEnvelopeSweepPace(sweepPace);
         var envelopeDirection = ((this.NR42 >> 3) & 0x1) === 1 ? "INCREASE" : "DECREASE";
+        this.channel4SampleGenerator.setEnvelopeDirection(envelopeDirection);
         // not updated by envelope
         var initialVolume = (this.NR42 >> 4) & 15;
+        this.channel4SampleGenerator.setEnvelopeInitialVolume(initialVolume);
+        // Turn off if env direction is down and initial length is zero
+        if (this.NR42 >> 3 === 0) {
+            this.channel4SampleGenerator.turnOff();
+        }
     };
-    APUImpl.prototype.readChannel4VolumeAndEnvelope = function () {
+    ApuV2Impl.prototype.readChannel4VolumeAndEnvelope = function () {
         return this.NR42;
     };
-    APUImpl.prototype.writeChannel4FrequencyAndRandomness = function (value) {
+    ApuV2Impl.prototype.writeChannel4FrequencyAndRandomness = function (value) {
         this.NR43 = value & 0xff;
         this.channel4ClockShift = (value >> 4) & 0xf;
+        this.channel4SampleGenerator.setClockShift((value >> 4) & 0xf);
         this.channel4LfsrWidth = ((value >> 3) & 0x1) === 0x1 ? 7 : 15;
+        this.channel4SampleGenerator.setLfsrWidth(((value >> 3) & 0x1) === 0x1 ? 7 : 15);
         this.channel4ClockDivider = (value & 7) === 0 ? 0.5 : value & 7;
+        this.channel4SampleGenerator.setLsfrClockDivider((value & 7) === 0 ? 0.5 : value & 7);
     };
-    APUImpl.prototype.readChannel4FrequencyAndRandomness = function () {
+    ApuV2Impl.prototype.readChannel4FrequencyAndRandomness = function () {
         return this.NR43;
     };
     // FF43 - NR44
-    APUImpl.prototype.writeChannel4Control = function (value) {
+    ApuV2Impl.prototype.writeChannel4Control = function (value) {
         this.NR44 = value & 0xff;
         var trigger = (this.NR44 >> 7) & 0x1;
+        var lengthEnabled = ((value >> 6) & 0x1) === 0x1;
+        this.channel4SampleGenerator.setLengthEnabled(lengthEnabled);
         // any value triggers this channel
         if (trigger) {
-            this.envelopes[3] = 0;
-            var initialVolume = (this.NR42 >> 4) & 15;
-            this.channel4Volume = initialVolume;
-            this.channel4IsOn = true;
+            this.channel4SampleGenerator.trigger();
         }
     };
-    APUImpl.prototype.readChannel4LengthEnable = function () {
+    ApuV2Impl.prototype.readChannel4LengthEnable = function () {
         return this.NR44 & 64;
     };
-    APUImpl.prototype.getNextLFSRSample = function () {
+    // Supporting proper pcm based on channel 3 ticks would require some refactoring to the audio engine
+    ApuV2Impl.prototype.channel3Tick = function () { };
+    return ApuV2Impl;
+}());
+exports.ApuV2Impl = ApuV2Impl;
+
+
+/***/ }),
+
+/***/ "./src/gameboy/apu-v2/channel-1-and-2-generator.ts":
+/*!*********************************************************!*\
+  !*** ./src/gameboy/apu-v2/channel-1-and-2-generator.ts ***!
+  \*********************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Channel1And2SampleGenerator = void 0;
+var Channel1And2SampleGenerator = /** @class */ (function () {
+    // Channel 1 and 2 are almost equivalent but channel 1 supports a sweep
+    // which we'll just disable in channel 1;
+    function Channel1And2SampleGenerator(enableSweep) {
+        this.enableSweep = enableSweep;
+        this.channelEnabled = false;
+        // Value between 0 and 15
+        this.volume = 0;
+        // Turns of channel once it hits 64
+        this.lengthEnabled = false;
+        this.initialLength = 0;
+        this.period = 0;
+        this.periodUpCounter = 0;
+        // period divider up counter clocked at 1048576, every 4 dots
+        this.periodTickCounter = 0;
+        this.periodClockTickModulo = 4;
+        // length timer increased at 256hz, that's every 16384 ticks
+        this.lengthTickCounter = 0;
+        this.lengthTickModulo = 16384;
+        // Our wave forms, picked based on duty cycle
+        this.samples = [
+            [1, -1, -1, -1, -1, -1, -1, -1], // 12.5%
+            [1, 1, -1, -1, -1, -1, -1, -1], // 25%
+            [1, 1, 1, 1, -1, -1, -1, -1], // 50%
+            [1, 1, 1, 1, 1, 1, -1, -1], // 75%
+        ];
+        // Number between 0 and 3
+        this.dutyCycle = 0;
+        this.samplePointer = 0;
+        // value between 0 and 15
+        this.initialVolume = 0;
+        this.envelopeDirection = "INCREASE";
+        // clocked at 64hz, that's every 65536 ticks
+        // 0 = disabled
+        this.envelopeSweepPace = 1; // that's not the frequency sweep
+        this.envelopeTickCounter = 0;
+        this.envelopeTickModulo = 65536;
+        // frequency sweep
+        this.sweepPace = 1; // this is essentially the sweep modulo
+        this.sweepPaceCounter = 0;
+        this.sweepDirection = "UP";
+        this.sweepIndividualStep = 0;
+        // sweep ticked every 126hz, that's every 32768 ticks
+        this.sweepTickCounter = 0;
+        this.sweepTickModulo = 32768;
+    }
+    // Called 4194304 per second;
+    Channel1And2SampleGenerator.prototype.tick = function () {
+        // period divider up counter clocked at 1048576, every 4 dots
+        this.periodTickCounter = (this.periodTickCounter + 1) % this.periodClockTickModulo;
+        if (this.periodTickCounter === 0) {
+            if (this.periodUpCounter > 0x7ff) {
+                // reset to period
+                this.periodUpCounter = this.period;
+                this.samplePointer = (this.samplePointer + 1) % 8;
+            }
+            else {
+                this.periodUpCounter++;
+            }
+        }
+        // length
+        if (this.lengthEnabled) {
+            this.lengthTickCounter = (this.lengthTickCounter + 1) % this.lengthTickModulo;
+            if (this.lengthTickCounter === 0) {
+                if (this.initialLength >= 64) {
+                    // turn off channel
+                    this.channelEnabled = false;
+                    this.volume = 0;
+                }
+                else {
+                    this.initialLength++;
+                }
+            }
+        }
+        // envelope, adjustments every 65536 * envelope sweep pace ticks
+        if (this.envelopeSweepPace != 0) {
+            this.envelopeTickCounter = (this.envelopeTickCounter + 1) % (this.envelopeTickModulo * this.envelopeSweepPace);
+            if (this.envelopeTickCounter === 0) {
+                if (this.envelopeDirection === "DECREASE") {
+                    // make quieter
+                    if (this.volume > 0) {
+                        this.volume = this.volume - 1;
+                    }
+                }
+                else {
+                    // make louder
+                    if (this.volume < 15) {
+                        this.volume = this.volume + 1;
+                    }
+                }
+            }
+        }
+        if (this.enableSweep) {
+            // Todo: theoretically we'll have to write the computed frequencies back into the registers.
+            // sweep happening in multiples of 128hz ticks, based on sweep pace
+            this.sweepTickCounter = (this.sweepTickCounter + 1) % this.sweepTickModulo;
+            if (this.sweepTickCounter === 0) {
+                if (this.sweepPace !== 0) {
+                    this.sweepPaceCounter = (this.sweepPaceCounter + 1) % this.sweepPace;
+                    if (this.sweepPaceCounter === 0) {
+                        if (this.sweepDirection === "UP") {
+                            this.period = this.period + this.period / Math.pow(2, this.sweepIndividualStep);
+                            if (this.period > 0x7ff) {
+                                this.channelEnabled = false;
+                                this.period = 0x7ff;
+                                this.sweepPace = 0;
+                            }
+                        }
+                        else {
+                            this.period = this.period - this.period / Math.pow(2, this.sweepIndividualStep);
+                            if (this.period < 0) {
+                                this.period = 0;
+                                this.channelEnabled = false;
+                                this.sweepPace = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    Channel1And2SampleGenerator.prototype.trigger = function (sweepOptions) {
+        this.samplePointer = 0;
+        this.periodTickCounter = 0;
+        this.sweepTickCounter = 0;
+        this.sweepPaceCounter = 0;
+        this.lengthTickCounter = 0;
+        this.channelEnabled = true;
+        this.volume = this.initialVolume;
+        if (sweepOptions) {
+            // sweep only read on trigger
+            this.sweepPace = sweepOptions.sweepPace;
+            this.sweepDirection = sweepOptions.sweepDirection;
+            this.sweepIndividualStep = sweepOptions.sweepIndividualStep;
+        }
+    };
+    Channel1And2SampleGenerator.prototype.setLengthEnabled = function (enabled) {
+        this.lengthEnabled = enabled;
+    };
+    Channel1And2SampleGenerator.prototype.setInitialLength = function (value) {
+        this.initialLength = value;
+    };
+    Channel1And2SampleGenerator.prototype.setPeriod = function (value) {
+        if (value < 0x7ff) {
+            this.period = value;
+        }
+        else {
+            this.channelEnabled = false;
+        }
+    };
+    Channel1And2SampleGenerator.prototype.getPeriod = function () {
+        return this.period;
+    };
+    Channel1And2SampleGenerator.prototype.setEnvelopeInitialVolume = function (value) {
+        this.initialVolume = value;
+    };
+    Channel1And2SampleGenerator.prototype.setEnvelopeDirection = function (value) {
+        this.envelopeDirection = value;
+    };
+    Channel1And2SampleGenerator.prototype.setEnvelopeSweepPace = function (value) {
+        this.envelopeSweepPace = value;
+    };
+    Channel1And2SampleGenerator.prototype.setDutyCycle = function (value) {
+        this.dutyCycle = value;
+    };
+    Channel1And2SampleGenerator.prototype.getSample = function () {
+        if (this.channelEnabled) {
+            return this.samples[this.dutyCycle][this.samplePointer] * (this.volume / 15);
+        }
+        else {
+            return 0;
+        }
+    };
+    Channel1And2SampleGenerator.prototype.turnOff = function () {
+        this.channelEnabled = false;
+    };
+    return Channel1And2SampleGenerator;
+}());
+exports.Channel1And2SampleGenerator = Channel1And2SampleGenerator;
+
+
+/***/ }),
+
+/***/ "./src/gameboy/apu-v2/channel-3-generator.ts":
+/*!***************************************************!*\
+  !*** ./src/gameboy/apu-v2/channel-3-generator.ts ***!
+  \***************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Channel3SampleGenerator = void 0;
+var Channel3SampleGenerator = /** @class */ (function () {
+    // Channel 1 and 2 are almost equivalent but channel 1 supports a sweep
+    // which we'll just disable in channel 1;
+    function Channel3SampleGenerator() {
+        this.channelEnabled = true;
+        // Value between 0 and 1
+        this.volume = 1;
+        // 4 bit sample per byte
+        this.samples = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        this.actualSamples = [];
+        this.samplePointer = 0;
+        // Turns of channel once it hits 64
+        this.lengthEnabled = false;
+        this.initialLength = 0;
+        // This can be written at any time
+        this.period = 0;
+        this.periodUpCounter = 0;
+        // period divider up counter clocked at 2097152, every 2 dots
+        this.periodTickCounter = 0;
+        this.periodClockTickModulo = 2;
+        // length timer increased at 256hz, that's every 16384 ticks
+        this.lengthTickCounter = 0;
+        this.lengthTickModulo = 16384;
+    }
+    // Called 4194304 per second;
+    Channel3SampleGenerator.prototype.tick = function () {
+        // period divider up counter clocked at 2097152, every 2 dots
+        this.periodTickCounter = (this.periodTickCounter + 1) % this.periodClockTickModulo;
+        if (this.periodTickCounter === 0) {
+            if (this.periodUpCounter > 0x7ff) {
+                // reset to period
+                this.periodUpCounter = this.period;
+                this.samplePointer = (this.samplePointer + 1) % 32;
+            }
+            else {
+                this.periodUpCounter++;
+            }
+        }
+        // length
+        if (this.lengthEnabled) {
+            this.lengthTickCounter = (this.lengthTickCounter + 1) % this.lengthTickModulo;
+            if (this.lengthTickCounter === 0) {
+                if (this.initialLength >= 256) {
+                    // turn off channel
+                    this.channelEnabled = false;
+                }
+                else {
+                    this.initialLength++;
+                }
+            }
+        }
+    };
+    Channel3SampleGenerator.prototype.trigger = function () {
+        this.samplePointer = 1;
+        this.periodTickCounter = 0;
+        this.lengthTickCounter = 0;
+        this.actualSamples = this.samples;
+        this.channelEnabled = true;
+    };
+    Channel3SampleGenerator.prototype.setLengthEnabled = function (enabled) {
+        this.lengthEnabled = enabled;
+    };
+    Channel3SampleGenerator.prototype.setInitialLength = function (value) {
+        this.initialLength = value;
+    };
+    Channel3SampleGenerator.prototype.setPeriod = function (value) {
+        if (value < 0x7ff) {
+            this.period = value;
+        }
+        else {
+            this.channelEnabled = false;
+        }
+    };
+    Channel3SampleGenerator.prototype.getPeriod = function () {
+        return this.period;
+    };
+    Channel3SampleGenerator.prototype.setVolume = function (volume) {
+        this.volume = volume;
+    };
+    Channel3SampleGenerator.prototype.setSamples = function (samples) {
+        this.samples = samples;
+    };
+    Channel3SampleGenerator.prototype.enable = function () {
+        this.channelEnabled = true;
+    };
+    Channel3SampleGenerator.prototype.disable = function () {
+        this.channelEnabled = false;
+    };
+    Channel3SampleGenerator.prototype.getSample = function () {
+        if (this.channelEnabled) {
+            var nibble = this.samplePointer % 2 === 0 ? "HIGH" : "LOW";
+            var sample = 0;
+            if (nibble === "HIGH") {
+                sample = (this.actualSamples[Math.round(this.samplePointer / 2)] >> 4) & 0xf;
+            }
+            else {
+                sample = this.actualSamples[Math.round(this.samplePointer / 2)] & 0xf;
+            }
+            return ((sample / 15) * 2 - 1) * this.volume; // move it so that it's between -1 and 1
+        }
+        else {
+            return 0;
+        }
+    };
+    return Channel3SampleGenerator;
+}());
+exports.Channel3SampleGenerator = Channel3SampleGenerator;
+
+
+/***/ }),
+
+/***/ "./src/gameboy/apu-v2/channel-4-generator.ts":
+/*!***************************************************!*\
+  !*** ./src/gameboy/apu-v2/channel-4-generator.ts ***!
+  \***************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Channel4SampleGenerator = void 0;
+var Channel4SampleGenerator = /** @class */ (function () {
+    function Channel4SampleGenerator() {
+        this.channelEnabled = false;
+        this.channel4LfsrWidth = 15;
+        this.channel4LfsrState = Math.pow(2, this.channel4LfsrWidth) - 1;
+        this.lfsrClockDivider = 1;
+        this.currentSample = 0;
+        this.clockShift = 1;
+        // length timer increased at 256hz, that's every 16384 ticks
+        this.lengthTickCounter = 0;
+        this.lengthTickModulo = 16384;
+        // Value between 0 and 15
+        this.volume = 0;
+        // Turns of channel once it hits 64
+        this.lengthEnabled = false;
+        this.initialLength = 0;
+        // value between 0 and 15
+        this.initialVolume = 0;
+        this.envelopeDirection = "INCREASE";
+        this.nextEnvelopeDirection = "INCREASE"; // value read and copied to envelope direction on re-trigger
+        // clocked at 64hz, that's every 65536 ticks
+        // 0 = disabled
+        this.envelopeSweepPace = 1; // that's not the frequency sweep
+        this.nextEnvelopeSweepPace = 0; // read on re-trigger
+        this.envelopeTickCounter = 0;
+        this.envelopeTickModulo = 65536;
+        this.tickCounter = 0;
+        this.tickModulo = 1; // calculated later as part of lfsr frequency
+    }
+    // Called 4194304 per second;
+    Channel4SampleGenerator.prototype.tick = function () {
+        // lfsr is clocked at 262144 / (divider * 2^shift)
+        // this can be rewritten as 4194304 / (16 * divider * 2^shift)
+        // a divider value of 0 get's mapped to 0.5
+        this.tickCounter = (this.tickCounter + 1) % this.tickModulo;
+        if (this.tickCounter === 0) {
+            this.currentSample = this.getNextLFSRSample() * 2 - 1; // scale [0,1] to [-1,1]
+        }
+        // length
+        if (this.lengthEnabled) {
+            this.lengthTickCounter = (this.lengthTickCounter + 1) % this.lengthTickModulo;
+            if (this.lengthTickCounter === 0) {
+                if (this.initialLength >= 64) {
+                    // turn off channel
+                    this.volume = 0;
+                    this.channelEnabled = false;
+                }
+                else {
+                    this.initialLength++;
+                }
+            }
+        }
+        // envelope, adjustments every 65536 * envelope sweep pace ticks
+        if (this.envelopeSweepPace != 0) {
+            this.envelopeTickCounter = (this.envelopeTickCounter + 1) % (this.envelopeTickModulo * this.envelopeSweepPace);
+            if (this.envelopeTickCounter === 0) {
+                if (this.envelopeDirection === "DECREASE") {
+                    // make quieter
+                    if (this.volume > 0) {
+                        this.volume = this.volume - 1;
+                    }
+                }
+                else {
+                    // make louder
+                    if (this.volume < 15) {
+                        this.volume = this.volume + 1;
+                    }
+                }
+            }
+        }
+    };
+    Channel4SampleGenerator.prototype.trigger = function () {
+        this.channelEnabled = true;
+        this.lengthTickCounter = 0;
+        this.channelEnabled = true;
+        this.envelopeSweepPace = this.nextEnvelopeSweepPace;
+        this.envelopeDirection = this.nextEnvelopeDirection;
+        this.volume = this.initialVolume;
+        this.envelopeTickCounter = 0;
+        this.channel4LfsrState = Math.pow(2, this.channel4LfsrWidth) - 1;
+        this.tickModulo = Math.floor(16 * this.lfsrClockDivider * Math.pow(2, this.clockShift));
+    };
+    Channel4SampleGenerator.prototype.getSample = function () {
+        if (this.channelEnabled) {
+            return this.currentSample * (this.volume / 15);
+        }
+        else {
+            return 0;
+        }
+    };
+    Channel4SampleGenerator.prototype.setInitialLengthTimer = function (value) {
+        this.initialLength = value;
+    };
+    Channel4SampleGenerator.prototype.setEnvelopeInitialVolume = function (value) {
+        this.initialVolume = value;
+    };
+    Channel4SampleGenerator.prototype.setEnvelopeDirection = function (value) {
+        this.nextEnvelopeDirection = value;
+    };
+    Channel4SampleGenerator.prototype.setEnvelopeSweepPace = function (value) {
+        this.nextEnvelopeSweepPace = value;
+    };
+    Channel4SampleGenerator.prototype.setClockShift = function (value) {
+        this.clockShift = value;
+    };
+    Channel4SampleGenerator.prototype.setLfsrWidth = function (value) {
+        this.channel4LfsrWidth = value;
+    };
+    Channel4SampleGenerator.prototype.setLsfrClockDivider = function (value) {
+        if (value === 0) {
+            this.lfsrClockDivider = 0.5;
+        }
+        else {
+            this.lfsrClockDivider = value;
+        }
+    };
+    Channel4SampleGenerator.prototype.setLengthEnabled = function (value) {
+        this.lengthEnabled = value;
+    };
+    Channel4SampleGenerator.prototype.getNextLFSRSample = function () {
         var result = this.channel4LfsrState & 1;
         var oneBeforeLast = (this.channel4LfsrState >> 1) & 1;
         this.channel4LfsrState = (this.channel4LfsrState >> 1) | ((result ^ oneBeforeLast) << (this.channel4LfsrWidth - 1));
         return result;
     };
-    // Supporting proper pcm based on channel 3 ticks would require some refactoring to the audio engine
-    APUImpl.prototype.channel3Tick = function () { };
-    return APUImpl;
+    Channel4SampleGenerator.prototype.turnOff = function () {
+        this.channelEnabled = false;
+    };
+    return Channel4SampleGenerator;
 }());
-exports.APUImpl = APUImpl;
+exports.Channel4SampleGenerator = Channel4SampleGenerator;
 
 
 /***/ }),
@@ -1971,9 +2216,11 @@ var CPU = /** @class */ (function () {
         // Modulo to clock the serial connection
         this.serialTickModulo = 0;
         this.cyclesPerSec = 4194304;
-        this.cyclesPerFrame = this.cyclesPerSec / 59;
+        this.cyclesPerFrame = this.cyclesPerSec / 60;
         this.timePerFrameMs = 1000 / 60;
         this.startTimeMs = performance.now();
+        this.totalFramesGenerated = 0;
+        this.absoluteStartTime = 0;
         // Implementations of our cpu instructions
         // 0x00
         this.nop = function () {
@@ -6021,9 +6268,13 @@ var CPU = /** @class */ (function () {
             },
         };
     }
+    CPU.prototype.start = function () {
+        this.totalFramesGenerated = 0;
+        this.absoluteStartTime = performance.now();
+        this.run();
+    };
     CPU.prototype.run = function () {
         var _this = this;
-        // Set timeout has such a strong latency that we have to measure the time here
         this.startTimeMs = performance.now();
         while (this.cyclesThisFrame < this.cyclesPerFrame && !this.killed) {
             if (this.debugging) {
@@ -6035,16 +6286,17 @@ var CPU = /** @class */ (function () {
             this.step();
         }
         this.cyclesThisFrame = 0;
+        this.totalFramesGenerated++;
+        //
         var timeTakenMs = performance.now() - this.startTimeMs;
         setTimeout(function () {
             if (!_this.killed) {
                 _this.run();
             }
-            // ms hack to compensate for set timeout, we don't want to sound to fluctuate too much which is why we dont' want this value to change too often
-            // we should actually measure this
         }, 
-        // Todo(put the timing back in)
-        this.timePerFrameMs - (timeTakenMs + 0));
+        // We delay the next frame taking the absolute time taken into account
+        // to avoid running out of sync at some point.
+        this.absoluteStartTime + this.totalFramesGenerated * this.timePerFrameMs - timeTakenMs - performance.now());
     };
     CPU.prototype.step = function (logStatements) {
         if (logStatements === void 0) { logStatements = false; }
@@ -6053,6 +6305,10 @@ var CPU = /** @class */ (function () {
             var nextFewBytesString = this.getNextFewBytes();
             // Fetch next instruction
             var pc = this.getPC();
+            // if (/*pc === 24*/ pc ===  16580) {
+            //   // this.debugging = true;
+            //   debugger;
+            // }
             var instructionNo = this.bus.read(pc);
             var instruction = this.instructions[instructionNo];
             // Throw error in case we ran into an instruction that hasn't been implemented yet.
@@ -6189,7 +6445,7 @@ var CPU = /** @class */ (function () {
     };
     CPU.prototype.continue = function () {
         this.debugging = false;
-        this.run();
+        this.start();
     };
     CPU.prototype.getNextFewBytes = function () {
         var pc = this.getPC();
@@ -6242,13 +6498,13 @@ var CPU = /** @class */ (function () {
             this.timer.tick();
             this.ppu.tick();
             this.cyclesThisFrame++;
+            this.apu.tick();
             if (this.tickModulo === 1 || this.tickModulo === 3) {
                 this.apu.channel3Tick();
             }
             if (this.tickModulo === 3) {
                 // these tick at 4194304 / 4 = 1048576 per second
                 this.dma.tick();
-                this.apu.tick();
             }
             if (this.serialTickModulo === 511) {
                 this.serial.tick();
@@ -6477,7 +6733,7 @@ exports.DMAImpl = DMAImpl;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Gameboy = void 0;
-var apu_1 = __webpack_require__(/*! ./apu */ "./src/gameboy/apu.ts");
+var apu_v2_1 = __webpack_require__(/*! ./apu-v2/apu-v2 */ "./src/gameboy/apu-v2/apu-v2.ts");
 var bus_1 = __webpack_require__(/*! ./bus */ "./src/gameboy/bus.ts");
 var cart_1 = __webpack_require__(/*! ./cart */ "./src/gameboy/cart.ts");
 var cpu_1 = __webpack_require__(/*! ./cpu */ "./src/gameboy/cpu.ts");
@@ -6545,11 +6801,14 @@ var Gameboy = /** @class */ (function () {
         var serial = new serial_1.SerialImpl(interrupts);
         var timer = new timer_1.TimerImpl(interrupts);
         this.joypad = new joypad_1.JoyPadImpl(interrupts);
-        this.apu = new apu_1.APUImpl();
+        // I've implemented 2 APUs, a more precise one with pcm and stereo support which requires a bit more performance and a hacky one.
+        // If you're running this on a slow machine you might want to replace this with the old apu
+        // this.apu = new APUImpl();
+        this.apu = new apu_v2_1.ApuV2Impl();
         this.bus = new bus_1.BusImpl(bootRom, cart, ram, interrupts, this.ppu, serial, timer, function (startAddress) { return dma.writeFF46(startAddress); }, this.joypad, this.apu);
         var dma = new dma_1.DMAImpl(this.bus, this.ppu);
         this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
-        this.cpu.run();
+        this.cpu.start();
     };
     Gameboy.prototype.startDebug = function () {
         this.cpu.startDebug();
@@ -6753,48 +7012,55 @@ exports.JoyPadImpl = void 0;
 var JoyPadImpl = /** @class */ (function () {
     function JoyPadImpl(interrupts) {
         this.interrupts = interrupts;
-        // 0xFF
         this.JOYP = 0xff;
         this.buttons = 0xf;
         this.pad = 0xf;
     }
     JoyPadImpl.prototype.getJOYP = function () {
-        if ((this.JOYP & 0xf0) === 16) {
-            return 208 | this.buttons;
+        if ((this.JOYP & 32) === 0x0) {
+            return (this.JOYP & 0xf0) | this.buttons;
         }
-        else if ((this.JOYP & 0xf0) === 32) {
-            return 224 | this.pad;
+        else if ((this.JOYP & 16) === 0) {
+            return (this.JOYP & 0xf0) | this.pad;
         }
         else {
-            return 0xff;
+            return (this.JOYP & 240) | 0xf;
         }
     };
     JoyPadImpl.prototype.setJOYP = function (value) {
         this.JOYP = (value & 0xf0) | (this.JOYP & 0x0f);
     };
     JoyPadImpl.prototype.pressStartButton = function () {
-        this.buttons = 7;
+        this.buttons = this.buttons & 7;
+        var currentInterruptFlags = this.interrupts.getInterruptFlag();
+        this.interrupts.setInterruptFlag(currentInterruptFlags | 16);
     };
     JoyPadImpl.prototype.releaseStartButton = function () {
-        this.buttons = 0xf;
+        this.buttons = this.buttons | 8;
     };
     JoyPadImpl.prototype.pressSelectButton = function () {
-        this.buttons = 11;
+        this.buttons = this.buttons & 11;
+        var currentInterruptFlags = this.interrupts.getInterruptFlag();
+        this.interrupts.setInterruptFlag(currentInterruptFlags | 16);
     };
     JoyPadImpl.prototype.releaseSelectButton = function () {
-        this.buttons = 0xf;
+        this.buttons = this.buttons | 4;
     };
     JoyPadImpl.prototype.pressAButton = function () {
-        this.buttons = 14;
+        this.buttons = this.buttons & 14;
+        var currentInterruptFlags = this.interrupts.getInterruptFlag();
+        this.interrupts.setInterruptFlag(currentInterruptFlags | 16);
     };
     JoyPadImpl.prototype.releaseAButton = function () {
-        this.buttons = 0xf;
+        this.buttons = this.buttons | 1;
     };
     JoyPadImpl.prototype.pressBButton = function () {
-        this.buttons = 13;
+        this.buttons = this.buttons & 13;
+        var currentInterruptFlags = this.interrupts.getInterruptFlag();
+        this.interrupts.setInterruptFlag(currentInterruptFlags | 16);
     };
     JoyPadImpl.prototype.releaseBButton = function () {
-        this.buttons = 0xf;
+        this.buttons = this.buttons | 2;
     };
     JoyPadImpl.prototype.pressLeft = function () {
         this.pad = this.pad & 13;
