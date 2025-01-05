@@ -201,8 +201,8 @@ var ApuV2Impl = /** @class */ (function () {
             this.globalBufferRight.push((channel1SampleRight + channel2SampleRight + channel3SampleRight + channel4SampleRight) / 4);
         }
         // Copy audio to audio buffer
-        var leftVolume = (((this.NR50 >> 4) & 7) / 7) * this.defaultVolume;
-        var rightVolume = ((this.NR50 & 7) / 7) * this.defaultVolume;
+        var leftVolume = (((this.NR50 >> 4) & 7) / 7) * this.volume;
+        var rightVolume = ((this.NR50 & 7) / 7) * this.volume;
         // This gets called exactly 100 times per second (we should do this based on tick count)
         if (this.globalBufferLeft.length === 441) {
             // submit samples
@@ -1115,8 +1115,10 @@ var BusImpl = /** @class */ (function () {
                 else if (address >= 0xff30 && address <= 0xff3f) {
                     result = this.apu.readChannel3WavePattern(address - 0xff30);
                 }
-                // ignore other audio reads
-                result = 0x00;
+                else {
+                    // ignore other audio reads
+                    result = 0x00;
+                }
             }
             else if (address === 0xff40) {
                 result = this.ppu.readFF40();
@@ -6267,6 +6269,8 @@ var CPU = /** @class */ (function () {
                 size: 1,
             },
         };
+        this.recordedPcs = [];
+        this.recordPcs = false;
     }
     CPU.prototype.start = function () {
         this.totalFramesGenerated = 0;
@@ -6305,10 +6309,9 @@ var CPU = /** @class */ (function () {
             var nextFewBytesString = this.getNextFewBytes();
             // Fetch next instruction
             var pc = this.getPC();
-            // if (/*pc === 24*/ pc ===  16580) {
-            //   // this.debugging = true;
-            //   debugger;
-            // }
+            if (this.recordPcs) {
+                this.recordedPcs.push(pc);
+            }
             var instructionNo = this.bus.read(pc);
             var instruction = this.instructions[instructionNo];
             // Throw error in case we ran into an instruction that hasn't been implemented yet.
@@ -6675,6 +6678,23 @@ var CPU = /** @class */ (function () {
         var c = this.getFlagC();
         console.log("Flags: z: ".concat(z, "\tn: ").concat(n, "\th: ").concat(h, "\tc: ").concat(c));
     };
+    CPU.prototype.startRecordingPcs = function () {
+        this.recordPcs = true;
+        this.recordedPcs.length = 0;
+        console.log("started recording pcs");
+    };
+    CPU.prototype.stopRecordingPcs = function () {
+        var _this = this;
+        this.recordPcs = false;
+        console.log("stopped recording pcs");
+        this.recordedPcs.sort(function (a, b) {
+            return a - b;
+        });
+        // uniq values
+        var result = this.recordedPcs.filter(function (value, index) { return index === _this.recordedPcs.indexOf(value); });
+        console.log("recorded pcs:");
+        console.log(result);
+    };
     return CPU;
 }());
 exports.CPU = CPU;
@@ -6871,6 +6891,14 @@ var Gameboy = /** @class */ (function () {
     Gameboy.prototype.continue = function () {
         this.cpu.continue();
         this.bus.disableDebugLog();
+    };
+    Gameboy.prototype.startRecordingPcs = function () {
+        var _a;
+        (_a = this.cpu) === null || _a === void 0 ? void 0 : _a.startRecordingPcs();
+    };
+    Gameboy.prototype.stopRecordingPcs = function () {
+        var _a;
+        (_a = this.cpu) === null || _a === void 0 ? void 0 : _a.stopRecordingPcs();
     };
     Gameboy.prototype.getCartridgeType = function () {
         var _a;
@@ -8658,6 +8686,12 @@ document.addEventListener("keydown", function (e) {
     }
     else if (e.key === "x") {
         gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressB();
+    }
+    else if (e.key === "q") {
+        gameboy === null || gameboy === void 0 ? void 0 : gameboy.startRecordingPcs();
+    }
+    else if (e.key === "w") {
+        gameboy === null || gameboy === void 0 ? void 0 : gameboy.stopRecordingPcs();
     }
     else {
         console.log("unhandled key pressed: " + e.key);
