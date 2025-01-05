@@ -152,6 +152,14 @@ export class Gameboy {
     this.bus!.disableDebugLog();
   }
 
+  startRecordingPcs() {
+    this.cpu?.startRecordingPcs();
+  }
+
+  stopRecordingPcs() {
+    this.cpu?.stopRecordingPcs();
+  }
+
   idToCartridgeType: { [key: number]: CartridgeType } = {
     0x00: "ROM-ONLY",
     0x01: "MBC1",

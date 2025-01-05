@@ -226,8 +226,8 @@ export class ApuV2Impl implements APU {
     }
 
     // Copy audio to audio buffer
-    const leftVolume = (((this.NR50 >> 4) & 0b111) / 7) * this.defaultVolume;
-    const rightVolume = ((this.NR50 & 0b111) / 7) * this.defaultVolume;
+    const leftVolume = (((this.NR50 >> 4) & 0b111) / 7) * this.volume;
+    const rightVolume = ((this.NR50 & 0b111) / 7) * this.volume;
     // This gets called exactly 100 times per second (we should do this based on tick count)
     if (this.globalBufferLeft.length === 441) {
       // submit samples

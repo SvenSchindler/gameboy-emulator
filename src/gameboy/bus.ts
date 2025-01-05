@@ -135,10 +135,10 @@ export class BusImpl implements Bus {
           result = this.apu.readAudioMasterControl();
         } else if (address >= 0xff30 && address <= 0xff3f) {
           result = this.apu.readChannel3WavePattern(address - 0xff30);
+        } else {
+          // ignore other audio reads
+          result = 0x00;
         }
-
-        // ignore other audio reads
-        result = 0x00;
       } else if (address === 0xff40) {
         result = this.ppu.readFF40();
       } else if (address === 0xff41) {

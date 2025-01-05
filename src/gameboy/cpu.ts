@@ -140,10 +140,9 @@ export class CPU {
       // Fetch next instruction
       const pc = this.getPC();
 
-      // if (/*pc === 24*/ pc ===  16580) {
-      //   // this.debugging = true;
-      //   debugger;
-      // }
+      if (this.recordPcs) {
+        this.recordedPcs.push(pc);
+      }
 
       const instructionNo = this.bus.read(pc);
       const instruction = this.instructions[instructionNo];
@@ -5083,5 +5082,26 @@ export class CPU {
     const c = this.getFlagC();
 
     console.log(`Flags: z: ${z}\tn: ${n}\th: ${h}\tc: ${c}`);
+  }
+
+  private recordedPcs: number[] = [];
+  private recordPcs = false;
+
+  startRecordingPcs() {
+    this.recordPcs = true;
+    this.recordedPcs.length = 0;
+    console.log("started recording pcs");
+  }
+
+  stopRecordingPcs() {
+    this.recordPcs = false;
+    console.log("stopped recording pcs");
+    this.recordedPcs.sort(function (a, b) {
+      return a - b;
+    });
+    // uniq values
+    const result = this.recordedPcs.filter((value, index) => index === this.recordedPcs.indexOf(value));
+    console.log("recorded pcs:");
+    console.log(result);
   }
 }

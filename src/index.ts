@@ -230,6 +230,10 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
     gameboy?.pressA();
   } else if (e.key === "x") {
     gameboy?.pressB();
+  } else if (e.key === "q") {
+    gameboy?.startRecordingPcs();
+  } else if (e.key === "w") {
+    gameboy?.stopRecordingPcs();
   } else {
     console.log("unhandled key pressed: " + e.key);
   }
