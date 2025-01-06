@@ -208,7 +208,7 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
     step();
   } else if (e.key === "c" && isDebugging) {
     resume();
-  } else if (e.key === "n") {
+  } else if (e.key === "n" || e.key === "Enter") {
     console.log("start pressed");
     gameboy?.pressStart();
   } else if (e.key === "m") {
@@ -240,7 +240,7 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
 });
 
 document.addEventListener("keyup", (e: KeyboardEvent) => {
-  if (e.key === "n") {
+  if (e.key === "n" || e.key === "Enter") {
     console.log("start released");
     gameboy?.releaseStart();
   } else if (e.key === "m") {
