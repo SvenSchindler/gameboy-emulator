@@ -8657,7 +8657,7 @@ document.addEventListener("keydown", function (e) {
     else if (e.key === "c" && isDebugging) {
         resume();
     }
-    else if (e.key === "n") {
+    else if (e.key === "n" || e.key === "Enter") {
         console.log("start pressed");
         gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
     }
@@ -8698,7 +8698,7 @@ document.addEventListener("keydown", function (e) {
     }
 });
 document.addEventListener("keyup", function (e) {
-    if (e.key === "n") {
+    if (e.key === "n" || e.key === "Enter") {
         console.log("start released");
         gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart();
     }
