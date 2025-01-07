@@ -8508,7 +8508,15 @@ var debugInfos = (0, utils_1.assertExists)(document.getElementById("debugInfos")
 var romFileInput = (0, utils_1.assertExists)(document.getElementById("romFileInput"), "Rom file input doesnt exist");
 var muteButton = (0, utils_1.assertExists)(document.getElementById("muteButton"), "Mute button doesnt exists");
 var debugButton = (0, utils_1.assertExists)(document.getElementById("debugButton"), "Debug button doesnt exists");
+// UI Buttons
 var startButton = (0, utils_1.assertExists)(document.getElementById("startButton"), "Start button doesnt exists");
+var selectButton = (0, utils_1.assertExists)(document.getElementById("selectButton"), "Select button doesnt exists");
+var AButton = (0, utils_1.assertExists)(document.getElementById("AButton"), "A button doesnt exists");
+var BButton = (0, utils_1.assertExists)(document.getElementById("BButton"), "B button doesnt exists");
+var upButton = (0, utils_1.assertExists)(document.getElementById("UpButton"), "Up button doesnt exists");
+var downButton = (0, utils_1.assertExists)(document.getElementById("DownButton"), "Down button doesnt exists");
+var leftButton = (0, utils_1.assertExists)(document.getElementById("LeftButton"), "Left button doesnt exists");
+var rightButton = (0, utils_1.assertExists)(document.getElementById("RightButton"), "Right button doesnt exists");
 if (romFileInput) {
     romFileInput.onchange = loadRom(romFileInput);
 }
@@ -8605,20 +8613,21 @@ var muteButtonClick = function () {
     }
 };
 muteButton.onclick = muteButtonClick;
-startButton.ontouchstart = function () {
-    gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
+// UI Button bindings
+var configureUiButton = function (button, onPress, onRelease) {
+    button.ontouchstart = onPress;
+    button.onmousedown = onPress;
+    button.ontouchend = onRelease;
+    button.onmouseup = onRelease;
 };
-startButton.ontouchend = function () {
-    gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart();
-};
-startButton.onmousedown = function () {
-    console.log("start clicked");
-    gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
-};
-startButton.onmouseup = function () {
-    console.log("start click released");
-    gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart();
-};
+configureUiButton(startButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart(); });
+configureUiButton(selectButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressSelect(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseSelect(); });
+configureUiButton(AButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressA(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseA(); });
+configureUiButton(BButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressB(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseB(); });
+configureUiButton(upButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressUp(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseUp(); });
+configureUiButton(downButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressDown(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseDown(); });
+configureUiButton(leftButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressLeft(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseLeft(); });
+configureUiButton(rightButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressRight(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseRight(); });
 // Keypress handlers
 document.addEventListener("keydown", function (e) {
     if (e.key === "d") {
