@@ -8605,6 +8605,12 @@ var muteButtonClick = function () {
     }
 };
 muteButton.onclick = muteButtonClick;
+startButton.ontouchstart = function () {
+    gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
+};
+startButton.ontouchend = function () {
+    gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart();
+};
 startButton.onmousedown = function () {
     console.log("start clicked");
     gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
