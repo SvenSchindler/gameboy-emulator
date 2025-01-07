@@ -8615,10 +8615,22 @@ var muteButtonClick = function () {
 muteButton.onclick = muteButtonClick;
 // UI Button bindings
 var configureUiButton = function (button, onPress, onRelease) {
-    button.ontouchstart = onPress;
-    button.onmousedown = onPress;
-    button.ontouchend = onRelease;
-    button.onmouseup = onRelease;
+    button.ontouchstart = function (e) {
+        onPress();
+        e.preventDefault();
+    };
+    button.onmousedown = function (e) {
+        onPress();
+        e.preventDefault();
+    };
+    button.ontouchend = function (e) {
+        onRelease();
+        e.preventDefault();
+    };
+    button.onmouseup = function (e) {
+        onRelease();
+        e.preventDefault();
+    };
 };
 configureUiButton(startButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart(); });
 configureUiButton(selectButton, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressSelect(); }, function () { return gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseSelect(); });
