@@ -8508,6 +8508,7 @@ var debugInfos = (0, utils_1.assertExists)(document.getElementById("debugInfos")
 var romFileInput = (0, utils_1.assertExists)(document.getElementById("romFileInput"), "Rom file input doesnt exist");
 var muteButton = (0, utils_1.assertExists)(document.getElementById("muteButton"), "Mute button doesnt exists");
 var debugButton = (0, utils_1.assertExists)(document.getElementById("debugButton"), "Debug button doesnt exists");
+var startButton = (0, utils_1.assertExists)(document.getElementById("startButton"), "Start button doesnt exists");
 if (romFileInput) {
     romFileInput.onchange = loadRom(romFileInput);
 }
@@ -8604,6 +8605,14 @@ var muteButtonClick = function () {
     }
 };
 muteButton.onclick = muteButtonClick;
+startButton.onmousedown = function () {
+    console.log("start clicked");
+    gameboy === null || gameboy === void 0 ? void 0 : gameboy.pressStart();
+};
+startButton.onmouseup = function () {
+    console.log("start click released");
+    gameboy === null || gameboy === void 0 ? void 0 : gameboy.releaseStart();
+};
 // Keypress handlers
 document.addEventListener("keydown", function (e) {
     if (e.key === "d") {

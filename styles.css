@@ -90,3 +90,14 @@ div.instructions {
   color: #f7d6aa;
   margin-left: 8px;
 }
+
+.startButton {
+  width: 88px;
+  height: 39px;
+  background-color: green;
+  position: absolute;
+  top: 744px;
+  left: 278px;
+  z-index: 20;
+  opacity: 0;
+}
