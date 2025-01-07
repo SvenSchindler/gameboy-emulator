@@ -48,6 +48,17 @@ const romFileInput = assertExists(document.getElementById("romFileInput"), "Rom 
 const muteButton = assertExists(document.getElementById("muteButton"), "Mute button doesnt exists");
 const debugButton = assertExists(document.getElementById("debugButton"), "Debug button doesnt exists");
 
+// UI Buttons
+const startButton = assertExists(document.getElementById("startButton"), "Start button doesnt exists");
+const selectButton = assertExists(document.getElementById("selectButton"), "Select button doesnt exists");
+const AButton = assertExists(document.getElementById("AButton"), "A button doesnt exists");
+const BButton = assertExists(document.getElementById("BButton"), "B button doesnt exists");
+
+const upButton = assertExists(document.getElementById("UpButton"), "Up button doesnt exists");
+const downButton = assertExists(document.getElementById("DownButton"), "Down button doesnt exists");
+const leftButton = assertExists(document.getElementById("LeftButton"), "Left button doesnt exists");
+const rightButton = assertExists(document.getElementById("RightButton"), "Right button doesnt exists");
+
 if (romFileInput) {
   romFileInput.onchange = loadRom(romFileInput as HTMLInputElement);
 }
@@ -155,6 +166,69 @@ const muteButtonClick = () => {
 };
 
 muteButton.onclick = muteButtonClick;
+
+// UI Button bindings
+
+const configureUiButton = (button: HTMLElement, onPress: () => void, onRelease: () => void) => {
+  button.ontouchstart = (e) => {
+    onPress();
+    e.preventDefault();
+  };
+  button.onmousedown = (e) => {
+    onPress();
+    e.preventDefault();
+  };
+  button.ontouchend = (e) => {
+    onRelease();
+    e.preventDefault();
+  };
+  button.onmouseup = (e) => {
+    onRelease();
+    e.preventDefault();
+  };
+};
+
+configureUiButton(
+  startButton,
+  () => gameboy?.pressStart(),
+  () => gameboy?.releaseStart(),
+);
+configureUiButton(
+  selectButton,
+  () => gameboy?.pressSelect(),
+  () => gameboy?.releaseSelect(),
+);
+configureUiButton(
+  AButton,
+  () => gameboy?.pressA(),
+  () => gameboy?.releaseA(),
+);
+configureUiButton(
+  BButton,
+  () => gameboy?.pressB(),
+  () => gameboy?.releaseB(),
+);
+
+configureUiButton(
+  upButton,
+  () => gameboy?.pressUp(),
+  () => gameboy?.releaseUp(),
+);
+configureUiButton(
+  downButton,
+  () => gameboy?.pressDown(),
+  () => gameboy?.releaseDown(),
+);
+configureUiButton(
+  leftButton,
+  () => gameboy?.pressLeft(),
+  () => gameboy?.releaseLeft(),
+);
+configureUiButton(
+  rightButton,
+  () => gameboy?.pressRight(),
+  () => gameboy?.releaseRight(),
+);
 
 // Keypress handlers
 

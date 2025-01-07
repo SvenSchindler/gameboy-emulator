@@ -2,6 +2,12 @@ body {
   font-family: "Courier New", Courier, monospace;
   background-color: black;
   overflow: visible;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .screen {
@@ -89,4 +95,83 @@ div.main {
 div.instructions {
   color: #f7d6aa;
   margin-left: 8px;
+}
+
+.startButton {
+  width: 88px;
+  height: 39px;
+  position: absolute;
+  top: 744px;
+  left: 278px;
+  z-index: 20;
+}
+
+.selectButton {
+  width: 88px;
+  height: 39px;
+  position: absolute;
+  top: 744px;
+  left: 170px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.AButton {
+  width: 88px;
+  height: 89px;
+  position: absolute;
+  top: 535px;
+  left: 388px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.BButton {
+  width: 88px;
+  height: 89px;
+  position: absolute;
+  top: 625px;
+  left: 314px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.LeftButton {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 569px;
+  left: 53px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.RightButton {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 569px;
+  left: 144px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.UpButton {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 517px;
+  left: 98px;
+  z-index: 20;
+  /* opacity: 0; */
+}
+
+.DownButton {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 620px;
+  left: 98px;
+  z-index: 20;
+  /* opacity: 0; */
 }
