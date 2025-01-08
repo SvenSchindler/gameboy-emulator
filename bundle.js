@@ -2157,7 +2157,9 @@ var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
  * especially the cb ops, which would have otherwise needed a tremendeous amount of code.
  */
 var CPU = /** @class */ (function () {
-    function CPU(bus, interrupts, ppu, apu, serial, dma, timer) {
+    function CPU(bus, interrupts, ppu, apu, serial, dma, timer, 
+    // Experimental: let the CPU tick the gamepad checks x times per second.
+    tickGamepad) {
         var _this = this;
         this.bus = bus;
         this.interrupts = interrupts;
@@ -2166,6 +2168,7 @@ var CPU = /** @class */ (function () {
         this.serial = serial;
         this.dma = dma;
         this.timer = timer;
+        this.tickGamepad = tickGamepad;
         /**
            * Init state after boot rom: https://robertheaton.com/gameboy-doctor/
               Register	Value
@@ -2223,6 +2226,9 @@ var CPU = /** @class */ (function () {
         this.startTimeMs = performance.now();
         this.totalFramesGenerated = 0;
         this.absoluteStartTime = 0;
+        // We're ticking the gamepad approx 60 times per second
+        this.gamepadTickCounter = 0;
+        this.gamepadTickModulo = 69905;
         // Implementations of our cpu instructions
         // 0x00
         this.nop = function () {
@@ -6497,6 +6503,7 @@ var CPU = /** @class */ (function () {
         return result;
     };
     CPU.prototype.tick = function (tCycles) {
+        var _a;
         for (var i = 0; i < tCycles; i++) {
             this.timer.tick();
             this.ppu.tick();
@@ -6515,6 +6522,10 @@ var CPU = /** @class */ (function () {
             // 4194304 / 8192 = 512
             this.serialTickModulo = (this.serialTickModulo + 1) % 512;
             this.tickModulo = (this.tickModulo + 1) % 4;
+            this.gamepadTickCounter = (this.gamepadTickCounter + 1) % this.gamepadTickModulo;
+            if (this.gamepadTickCounter === 0) {
+                (_a = this.tickGamepad) === null || _a === void 0 ? void 0 : _a.call(this);
+            }
         }
     };
     // Getters registers
@@ -6744,6 +6755,116 @@ exports.DMAImpl = DMAImpl;
 
 /***/ }),
 
+/***/ "./src/gameboy/gameboy-gamepad.ts":
+/*!****************************************!*\
+  !*** ./src/gameboy/gameboy-gamepad.ts ***!
+  \****************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GameboyGamepad = void 0;
+// Called it GameboyGamepad to avoid confusion with the gamepad api.
+var GameboyGamepad = /** @class */ (function () {
+    function GameboyGamepad(joypad) {
+        this.joypad = joypad;
+        this.startPressed = false;
+        this.selectPressed = false;
+        this.APressed = false;
+        this.BPressed = false;
+        this.leftPressed = false;
+        this.rightPressed = false;
+        this.upPressed = false;
+        this.downPressed = false;
+    }
+    GameboyGamepad.prototype.tick = function () {
+        var gp = navigator.getGamepads()[0];
+        // No gamepad found
+        if (!gp) {
+            return;
+        }
+        // Start button 2
+        if (gp.buttons[2].pressed && !this.startPressed) {
+            // Pressed start
+            this.startPressed = true;
+            this.joypad.pressStartButton();
+        }
+        else if (!gp.buttons[2].pressed && this.startPressed) {
+            // Released start
+            this.startPressed = false;
+            this.joypad.releaseStartButton();
+        }
+        // Select button 3
+        if (gp.buttons[3].pressed && !this.selectPressed) {
+            this.selectPressed = true;
+            this.joypad.pressSelectButton();
+        }
+        else if (!gp.buttons[3].pressed && this.selectPressed) {
+            this.selectPressed = false;
+            this.joypad.releaseSelectButton();
+        }
+        // A button 0
+        if (gp.buttons[0].pressed && !this.APressed) {
+            this.APressed = true;
+            this.joypad.pressAButton();
+        }
+        else if (!gp.buttons[0].pressed && this.APressed) {
+            this.APressed = false;
+            this.joypad.releaseAButton();
+        }
+        // B button 1
+        if (gp.buttons[1].pressed && !this.BPressed) {
+            this.BPressed = true;
+            this.joypad.pressBButton();
+        }
+        else if (!gp.buttons[1].pressed && this.BPressed) {
+            this.BPressed = false;
+            this.joypad.releaseBButton();
+        }
+        // Left 14
+        if (gp.buttons[14].pressed && !this.leftPressed) {
+            this.leftPressed = true;
+            this.joypad.pressLeft();
+        }
+        else if (!gp.buttons[14].pressed && this.leftPressed) {
+            this.leftPressed = false;
+            this.joypad.releaseLeft();
+        }
+        // Right 15
+        if (gp.buttons[15].pressed && !this.rightPressed) {
+            this.rightPressed = true;
+            this.joypad.pressRight();
+        }
+        else if (!gp.buttons[15].pressed && this.rightPressed) {
+            this.rightPressed = false;
+            this.joypad.releaseRight();
+        }
+        // Up 12
+        if (gp.buttons[12].pressed && !this.upPressed) {
+            this.upPressed = true;
+            this.joypad.pressUp();
+        }
+        else if (!gp.buttons[12].pressed && this.upPressed) {
+            this.upPressed = false;
+            this.joypad.releaseUp();
+        }
+        // Down 13
+        if (gp.buttons[13].pressed && !this.downPressed) {
+            this.downPressed = true;
+            this.joypad.pressDown();
+        }
+        else if (!gp.buttons[13].pressed && this.downPressed) {
+            this.downPressed = false;
+            this.joypad.releaseDown();
+        }
+    };
+    return GameboyGamepad;
+}());
+exports.GameboyGamepad = GameboyGamepad;
+
+
+/***/ }),
+
 /***/ "./src/gameboy/gameboy.ts":
 /*!********************************!*\
   !*** ./src/gameboy/gameboy.ts ***!
@@ -6758,6 +6879,7 @@ var bus_1 = __webpack_require__(/*! ./bus */ "./src/gameboy/bus.ts");
 var cart_1 = __webpack_require__(/*! ./cart */ "./src/gameboy/cart.ts");
 var cpu_1 = __webpack_require__(/*! ./cpu */ "./src/gameboy/cpu.ts");
 var dma_1 = __webpack_require__(/*! ./dma */ "./src/gameboy/dma.ts");
+var gameboy_gamepad_1 = __webpack_require__(/*! ./gameboy-gamepad */ "./src/gameboy/gameboy-gamepad.ts");
 var interrupts_1 = __webpack_require__(/*! ./interrupts */ "./src/gameboy/interrupts.ts");
 var joypad_1 = __webpack_require__(/*! ./joypad */ "./src/gameboy/joypad.ts");
 var ppu_1 = __webpack_require__(/*! ./ppu */ "./src/gameboy/ppu.ts");
@@ -6827,7 +6949,8 @@ var Gameboy = /** @class */ (function () {
         this.apu = new apu_v2_1.ApuV2Impl();
         this.bus = new bus_1.BusImpl(bootRom, cart, ram, interrupts, this.ppu, serial, timer, function (startAddress) { return dma.writeFF46(startAddress); }, this.joypad, this.apu);
         var dma = new dma_1.DMAImpl(this.bus, this.ppu);
-        this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
+        var gamepad = new gameboy_gamepad_1.GameboyGamepad(this.joypad);
+        this.cpu = new cpu_1.CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer, function () { return gamepad.tick(); });
         this.cpu.start();
     };
     Gameboy.prototype.startDebug = function () {
