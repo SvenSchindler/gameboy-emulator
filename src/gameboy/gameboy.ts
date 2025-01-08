@@ -4,6 +4,7 @@ import { Bus, BusImpl } from "./bus";
 import { createCart, CartridgeType, CartridgeInfo } from "./cart";
 import { CPU } from "./cpu";
 import { DMAImpl } from "./dma";
+import { GameboyGamepad } from "./gameboy-gamepad";
 import { InterruptsImpl } from "./interrupts";
 import { JoyPad, JoyPadImpl } from "./joypad";
 import { PPUImpl, PPU } from "./ppu";
@@ -79,7 +80,8 @@ export class Gameboy {
       this.apu,
     );
     const dma = new DMAImpl(this.bus, this.ppu);
-    this.cpu = new CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer);
+    const gamepad = new GameboyGamepad(this.joypad);
+    this.cpu = new CPU(this.bus, interrupts, this.ppu, this.apu, serial, dma, timer, () => gamepad.tick());
     this.cpu.start();
   }
 

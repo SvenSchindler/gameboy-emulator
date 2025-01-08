@@ -29,6 +29,8 @@ export class CPU {
     readonly serial: Serial,
     readonly dma: DMA,
     private timer: Timer,
+    // Experimental: let the CPU tick the gamepad checks x times per second.
+    private tickGamepad?: () => void,
   ) {}
 
   /**
@@ -98,6 +100,10 @@ export class CPU {
 
   private totalFramesGenerated = 0;
   private absoluteStartTime = 0;
+
+  // We're ticking the gamepad approx 60 times per second
+  private gamepadTickCounter = 0;
+  private gamepadTickModulo = 69905;
 
   start() {
     this.totalFramesGenerated = 0;
@@ -385,6 +391,11 @@ export class CPU {
       this.serialTickModulo = (this.serialTickModulo + 1) % 512;
 
       this.tickModulo = (this.tickModulo + 1) % 4;
+
+      this.gamepadTickCounter = (this.gamepadTickCounter + 1) % this.gamepadTickModulo;
+      if (this.gamepadTickCounter === 0) {
+        this.tickGamepad?.();
+      }
     }
   }
 
