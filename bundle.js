@@ -6783,13 +6783,13 @@ var GameboyGamepad = /** @class */ (function () {
         if (!gp) {
             return;
         }
-        // Start button 2
-        if (gp.buttons[2].pressed && !this.startPressed) {
+        // Start button 1
+        if (gp.buttons[1].pressed && !this.startPressed) {
             // Pressed start
             this.startPressed = true;
             this.joypad.pressStartButton();
         }
-        else if (!gp.buttons[2].pressed && this.startPressed) {
+        else if (!gp.buttons[1].pressed && this.startPressed) {
             // Released start
             this.startPressed = false;
             this.joypad.releaseStartButton();
@@ -6812,12 +6812,12 @@ var GameboyGamepad = /** @class */ (function () {
             this.APressed = false;
             this.joypad.releaseAButton();
         }
-        // B button 1
-        if (gp.buttons[1].pressed && !this.BPressed) {
+        // B button 2
+        if (gp.buttons[2].pressed && !this.BPressed) {
             this.BPressed = true;
             this.joypad.pressBButton();
         }
-        else if (!gp.buttons[1].pressed && this.BPressed) {
+        else if (!gp.buttons[2].pressed && this.BPressed) {
             this.BPressed = false;
             this.joypad.releaseBButton();
         }
