@@ -8167,27 +8167,22 @@ var PPUImpl = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        var pixelSpacing = gl.canvas.width / 160 / 10 / 160;
+        var renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
+        var rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
+        var positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
         // Function to render our prepared texture to our webgl canvas
         var renderLcdTexture = function (gl, texture) {
             gl.useProgram(lcdProgram);
             // Set whether we want to render in retro mode with raster
-            var renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
             gl.uniform1i(renderRasterUniformLocation, _this.showRetroDisplay ? 1 : 0);
             // Raster color for areas with no pixel
-            var rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
             var rasterColor = _this.colorTheme.getRasterColor();
             gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
-            var positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
             gl.enableVertexAttribArray(positionLocation);
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-            gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
+            // We've only got one texture bound, no need to re-bind
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         };
         var sendPixelToLCD = function (rgba) {
