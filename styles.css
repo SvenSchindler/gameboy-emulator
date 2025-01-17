@@ -13,8 +13,6 @@ body {
 .screen {
   width: 347px;
   height: 301px;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   position: absolute;
   left: 94px;
   top: 98px;

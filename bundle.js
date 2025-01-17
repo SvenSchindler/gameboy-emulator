@@ -2,6 +2,34 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./src/gameboy/shaders/lcd.frag":
+/*!**************************************!*\
+  !*** ./src/gameboy/shaders/lcd.frag ***!
+  \**************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ("precision highp float;\n\nuniform sampler2D u_image; \nvarying vec2 v_screenCoord;\n\nuniform vec4 u_raster_color;\n\nuniform int u_render_raster;\n\nvoid main() {\n    // screen coord between 0 and 1600\n    // converted here to 0 - 160\n    vec2 pixelIndex = floor(v_screenCoord / 10.0);\n    float pixelWidth = 10.0;\n    vec2 posInPixel = mod(v_screenCoord, pixelIndex * pixelWidth);\n    float width = 1.2;\n    if (u_render_raster > 0 && (posInPixel.x < width || posInPixel.y < width)) {\n        gl_FragColor = (texture2D(u_image, vec2(pixelIndex.x / 160.0, pixelIndex.y / 144.0)) + texture2D(u_image, vec2((pixelIndex.x + 0.1) / 160.0, pixelIndex.y / 144.0)) + u_raster_color / 255.0) / 3.0;\n    } else {\n        gl_FragColor = texture2D(u_image, vec2(pixelIndex.x / 160.0, pixelIndex.y / 144.0));     \n    }\n    \n    \n}");
+
+/***/ }),
+
+/***/ "./src/gameboy/shaders/lcd.vert":
+/*!**************************************!*\
+  !*** ./src/gameboy/shaders/lcd.vert ***!
+  \**************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ("precision highp float;\n\nattribute vec2 a_position;\n \nvarying vec2 v_screenCoord;\n\nvoid main() {\n   vec2 scaled = a_position * 2.0 - 1.0;\n   gl_Position = vec4(scaled.x, -scaled.y, 1.0, 1.0);\n   // We'll provide coordinates on teh screen between 0x0 and 1600x1440\n   v_screenCoord = vec2(a_position.x * 1600.0, a_position.y * 1440.0);\n}");
+
+/***/ }),
+
 /***/ "./src/gameboy/apu-v2/apu-v2.ts":
 /*!**************************************!*\
   !*** ./src/gameboy/apu-v2/apu-v2.ts ***!
@@ -6977,6 +7005,10 @@ var Gameboy = /** @class */ (function () {
         var _a;
         (_a = this.apu) === null || _a === void 0 ? void 0 : _a.unmute();
     };
+    Gameboy.prototype.setShowRetroScreen = function (value) {
+        var _a;
+        (_a = this.ppu) === null || _a === void 0 ? void 0 : _a.setRetroModeEnabled(value);
+    };
     // register name, register content
     Gameboy.prototype.getRegisterInfo = function () {
         return [
@@ -7420,12 +7452,14 @@ exports.LcdUtils = void 0;
 var LcdUtils = /** @class */ (function () {
     function LcdUtils() {
     }
-    LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color) {
+    LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color, useDecay) {
+        if (useDecay === void 0) { useDecay = false; }
+        var decayFactor = useDecay ? 0.5 : 0;
         var index = (x + y * canvasWidth) * 4;
-        canvasData.data[index + 0] = color[0];
-        canvasData.data[index + 1] = color[1];
-        canvasData.data[index + 2] = color[2];
-        canvasData.data[index + 3] = color[3];
+        canvasData.data[index + 0] = (1 - decayFactor) * color[0] + decayFactor * canvasData.data[index + 0];
+        canvasData.data[index + 1] = (1 - decayFactor) * color[1] + decayFactor * canvasData.data[index + 1];
+        canvasData.data[index + 2] = (1 - decayFactor) * color[2] + decayFactor * canvasData.data[index + 2];
+        canvasData.data[index + 3] = (1 - decayFactor) * color[3] + decayFactor * canvasData.data[index + 3];
     };
     return LcdUtils;
 }());
@@ -7438,14 +7472,19 @@ exports.LcdUtils = LcdUtils;
 /*!****************************!*\
   !*** ./src/gameboy/ppu.ts ***!
   \****************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PPUImpl = void 0;
 var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
 var lcddebug_1 = __webpack_require__(/*! ./lcddebug */ "./src/gameboy/lcddebug.ts");
 var lcdutils_1 = __webpack_require__(/*! ./lcdutils */ "./src/gameboy/lcdutils.ts");
+var lcd_vert_1 = __importDefault(__webpack_require__(/*! ./shaders/lcd.vert */ "./src/gameboy/shaders/lcd.vert"));
+var lcd_frag_1 = __importDefault(__webpack_require__(/*! ./shaders/lcd.frag */ "./src/gameboy/shaders/lcd.frag"));
 var SpritePixelFetcher = /** @class */ (function () {
     function SpritePixelFetcher(vram, getPPUInfo) {
         this.vram = vram;
@@ -7776,25 +7815,54 @@ var BackgroundWindowPixelFetcher = /** @class */ (function () {
     };
     return BackgroundWindowPixelFetcher;
 }());
+var ColorTheme = /** @class */ (function () {
+    function ColorTheme() {
+        this.selected = "ToyBlue";
+        this.colorThemeConfigurations = {
+            ToyBlue: {
+                palette: [
+                    [174, 255, 255, 255],
+                    [21, 205, 214, 255],
+                    [16, 173, 173, 255],
+                    [76, 17, 18, 255],
+                ],
+                raster: [200, 255, 255, 255],
+            },
+            ClassicGreen: {
+                palette: [
+                    [0x68, 0x7e, 0x0, 0xff],
+                    [0x45, 0x66, 0x1, 0xff],
+                    [0x30, 0x5c, 0x0, 0xff],
+                    [0x18, 0x51, 0x1, 0xff],
+                ],
+                raster: [119, 138, 8, 255],
+            },
+        };
+    }
+    ColorTheme.prototype.select = function (theme) {
+        this.selected = theme;
+    };
+    ColorTheme.prototype.getPalette = function () {
+        return this.colorThemeConfigurations[this.selected].palette;
+    };
+    ColorTheme.prototype.getRasterColor = function () {
+        return this.colorThemeConfigurations[this.selected].raster;
+    };
+    return ColorTheme;
+}());
 var RenderPipeline = /** @class */ (function () {
     /**
      *
      * @param vram
      * @param sendToLCD Called for each pixel, so 160x144 times
      */
-    function RenderPipeline(backgroundPixelFetcher, spritePixelFetcher, getPPUInfo, sendToLCD, lcdDebugRenderer) {
+    function RenderPipeline(backgroundPixelFetcher, spritePixelFetcher, getColorPalette, getPPUInfo, sendToLCD, lcdDebugRenderer) {
         this.backgroundPixelFetcher = backgroundPixelFetcher;
         this.spritePixelFetcher = spritePixelFetcher;
+        this.getColorPalette = getColorPalette;
         this.getPPUInfo = getPPUInfo;
         this.sendToLCD = sendToLCD;
         this.lcdDebugRenderer = lcdDebugRenderer;
-        // Toy blue
-        this.colors = [
-            [174, 255, 255, 255],
-            [21, 205, 214, 255],
-            [16, 173, 173, 255],
-            [76, 17, 18, 255],
-        ];
         this.pixelsSentToLCDForCurrentLine = 0;
         this.isStartOfScanline = true;
         this.discardPixelsCount = 0;
@@ -7925,7 +7993,7 @@ var RenderPipeline = /** @class */ (function () {
             var ppuInfo = this.getPPUInfo();
             // if this is a background pixel and the background isn't enabled then we just sent out a white pixel
             if (!(pixel === null || pixel === void 0 ? void 0 : pixel.overwrittenBySprite) && (ppuInfo.LCDC_ff40 & 0x1) === 0) {
-                this.sendToLCD(this.colors[0]);
+                this.sendToLCD(this.getColorPalette()[0]);
             }
             else if ((pixel === null || pixel === void 0 ? void 0 : pixel.overwrittenBySprite) === true) {
                 var obj0ColorId0 = 0; // lower 2 bits ignored for objects, it's transparent for object
@@ -7939,7 +8007,7 @@ var RenderPipeline = /** @class */ (function () {
                 var obj1ColorId3 = (ppuInfo.OBP1_ff49 >> 6) & 0x03;
                 var obj1ColorPalette = [obj1ColorId0, obj1ColorId1, obj1ColorId2, obj1ColorId3];
                 var objPalette = pixel.palette === 0 ? obj0ColorPalette : obj1ColorPalette;
-                this.sendToLCD(this.colors[objPalette[pixel.colorIndex]]);
+                this.sendToLCD(this.getColorPalette()[objPalette[pixel.colorIndex]]);
             }
             else {
                 var bgColorId0 = ppuInfo.BGP_ff47 & 0x03;
@@ -7947,7 +8015,7 @@ var RenderPipeline = /** @class */ (function () {
                 var bgColorId2 = (ppuInfo.BGP_ff47 >> 4) & 0x03;
                 var bgColorId3 = (ppuInfo.BGP_ff47 >> 6) & 0x03;
                 var backgroundColorPalette = [bgColorId0, bgColorId1, bgColorId2, bgColorId3];
-                this.sendToLCD(this.colors[backgroundColorPalette[pixel.colorIndex]]);
+                this.sendToLCD(this.getColorPalette()[backgroundColorPalette[pixel.colorIndex]]);
             }
             if (ppuInfo.debugEnabled) {
                 this.maybeDrawDebugScrollFrame();
@@ -8028,7 +8096,8 @@ var PPUImpl = /** @class */ (function () {
         // Let's just keep this running in the background.
         // For slow machines we might want to turn this off.
         this.debugRenderingEnabled = true;
-        this.scxAtBeginningOfScanLine = 0x0;
+        this.showRetroDisplay = false;
+        this.colorTheme = new ColorTheme();
         var getPPUInfoForRenderPipeline = function () { return ({
             LCDC_ff40: _this.LCDC_ff40,
             SCY_ff42: _this.SCY_ff42,
@@ -8042,13 +8111,89 @@ var PPUImpl = /** @class */ (function () {
             debugEnabled: _this.debugRenderingEnabled,
         }); };
         this.debugRenderer = new lcddebug_1.LcdDebugRenderer(tileCanvas, backgroundCanvas, this.vram, getPPUInfoForRenderPipeline);
-        var lcdCanvasContext = lcdCanvas.getContext("2d", {
-            willReadFrequently: true,
-        });
-        var lcdCanvasData = lcdCanvasContext.getImageData(0, 0, this.lcdCanvas.width, this.lcdCanvas.height);
+        // For now we just let the app fail if we can't create a
+        // webgl rendering context.
+        var gl = lcdCanvas.getContext("webgl", { antialias: true });
+        var colors = this.colorTheme.getPalette()[0];
+        gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        var createShader = function (shaderCode, type) {
+            var vertexShader = gl.createShader(type);
+            if (!vertexShader) {
+                throw Error("Could not create ".concat(type, " shader"));
+            }
+            gl.shaderSource(vertexShader, shaderCode);
+            gl.compileShader(vertexShader);
+            var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            if (!success) {
+                throw Error("error creating ".concat(type, " shader: ").concat(gl.getShaderInfoLog(vertexShader)));
+            }
+            return vertexShader;
+        };
+        var vertexShader = createShader(lcd_vert_1.default, gl.VERTEX_SHADER);
+        var fragmentShader = createShader(lcd_frag_1.default, gl.FRAGMENT_SHADER);
+        // Same here, for now we just let it crash if we can't create our program.
+        var lcdProgram = gl.createProgram();
+        gl.attachShader(lcdProgram, vertexShader);
+        gl.attachShader(lcdProgram, fragmentShader);
+        gl.linkProgram(lcdProgram);
+        if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
+            throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
+        }
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        var imageWidth = 160;
+        var imageHeight = 144;
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            0,
+            0, //
+            imageWidth,
+            0, //
+            0,
+            imageHeight, //
+            0,
+            imageHeight, //
+            imageWidth,
+            0, //
+            imageWidth,
+            imageHeight, //
+        ]), gl.STATIC_DRAW);
+        var lcdTexture = gl.createTexture();
+        var lcdTextureData = new ImageData(160, 144);
+        gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        var pixelSpacing = gl.canvas.width / 160 / 10 / 160;
+        // Function to render our prepared texture to our webgl canvas
+        var renderLcdTexture = function (gl, texture) {
+            gl.useProgram(lcdProgram);
+            // Set whether we want to render in retro mode with raster
+            var renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
+            gl.uniform1i(renderRasterUniformLocation, _this.showRetroDisplay ? 1 : 0);
+            // Raster color for areas with no pixel
+            var rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
+            var rasterColor = _this.colorTheme.getRasterColor();
+            gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
+            var positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        };
         var sendPixelToLCD = function (rgba) {
             // draw
-            lcdutils_1.LcdUtils.drawPixel(lcdCanvasData, 160, _this.x, _this.y, rgba);
+            lcdutils_1.LcdUtils.drawPixel(lcdTextureData, 160, _this.x, _this.y, rgba, _this.showRetroDisplay);
+            // update texture
             // update coords
             _this.x = (_this.x + 1) % 160;
             // new line
@@ -8062,15 +8207,25 @@ var PPUImpl = /** @class */ (function () {
                         _this.isFirstFrameAfterPPUEnabled = false;
                     }
                     else {
-                        lcdCanvasContext.putImageData(lcdCanvasData, 0, 0);
+                        // draw
+                        renderLcdTexture(gl, lcdTextureData);
                     }
                 }
             }
         };
         var backgroundWindowPixelFetcher = new BackgroundWindowPixelFetcher(this.vram, getPPUInfoForRenderPipeline);
         var spritePixelFetcher = new SpritePixelFetcher(this.vram, getPPUInfoForRenderPipeline);
-        this.renderPipeline = new RenderPipeline(backgroundWindowPixelFetcher, spritePixelFetcher, getPPUInfoForRenderPipeline, sendPixelToLCD, this.debugRenderer);
+        this.renderPipeline = new RenderPipeline(backgroundWindowPixelFetcher, spritePixelFetcher, function () { return _this.colorTheme.getPalette(); }, getPPUInfoForRenderPipeline, sendPixelToLCD, this.debugRenderer);
     }
+    PPUImpl.prototype.setRetroModeEnabled = function (value) {
+        this.showRetroDisplay = value;
+        if (this.showRetroDisplay) {
+            this.colorTheme.select("ClassicGreen");
+        }
+        else {
+            this.colorTheme.select("ToyBlue");
+        }
+    };
     PPUImpl.prototype.tick = function () {
         if (!this.ppuEnabled) {
             return;
@@ -8081,7 +8236,6 @@ var PPUImpl = /** @class */ (function () {
         if (this.dots === 0 && this.mode !== 1) {
             // mode 2
             this.mode = 2;
-            this.scxAtBeginningOfScanLine = this.SCX_ff43;
             // reset scanned objects
             this.objectsForScanline.length = 0;
             // Maybe fire STAT interrupt for mode 2
@@ -8577,11 +8731,40 @@ function assertExists(value, msg) {
 /******/ 		};
 /******/ 	
 /******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+/******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
 /******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
+/******/ 	
+/************************************************************************/
+/******/ 	/* webpack/runtime/define property getters */
+/******/ 	(() => {
+/******/ 		// define getter functions for harmony exports
+/******/ 		__webpack_require__.d = (exports, definition) => {
+/******/ 			for(var key in definition) {
+/******/ 				if(__webpack_require__.o(definition, key) && !__webpack_require__.o(exports, key)) {
+/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 				}
+/******/ 			}
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
+/******/ 	(() => {
+/******/ 		__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/make namespace object */
+/******/ 	(() => {
+/******/ 		// define __esModule on exports
+/******/ 		__webpack_require__.r = (exports) => {
+/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+/******/ 			}
+/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 		};
+/******/ 	})();
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
@@ -8598,6 +8781,7 @@ var utils_1 = __webpack_require__(/*! ./gameboy/utils */ "./src/gameboy/utils.ts
 var gameboy;
 var isDebugging = false;
 var isMuted = false;
+var showRetroScreen = false;
 var loadRom = function (i) { return function () {
     var _a;
     var file = (0, utils_1.assertExists)((_a = i.files) === null || _a === void 0 ? void 0 : _a.item(0), "No file selected?");
@@ -8630,6 +8814,7 @@ var stackInfoOutput = (0, utils_1.assertExists)(document.getElementById("stackIn
 var debugInfos = (0, utils_1.assertExists)(document.getElementById("debugInfos"), "Debug infos view doesn't exist");
 var romFileInput = (0, utils_1.assertExists)(document.getElementById("romFileInput"), "Rom file input doesnt exist");
 var muteButton = (0, utils_1.assertExists)(document.getElementById("muteButton"), "Mute button doesnt exists");
+var retroButton = (0, utils_1.assertExists)(document.getElementById("retroButton"), "Retro button doesnt exists");
 var debugButton = (0, utils_1.assertExists)(document.getElementById("debugButton"), "Debug button doesnt exists");
 // UI Buttons
 var startButton = (0, utils_1.assertExists)(document.getElementById("startButton"), "Start button doesnt exists");
@@ -8736,6 +8921,17 @@ var muteButtonClick = function () {
     }
 };
 muteButton.onclick = muteButtonClick;
+// Retro look
+var retroButtonClick = function () {
+    if (showRetroScreen) {
+        showRetroScreen = false;
+    }
+    else {
+        showRetroScreen = true;
+    }
+    gameboy === null || gameboy === void 0 ? void 0 : gameboy.setShowRetroScreen(showRetroScreen);
+};
+retroButton.onclick = retroButtonClick;
 // UI Button bindings
 var configureUiButton = function (button, onPress, onRelease) {
     button.ontouchstart = function (e) {
