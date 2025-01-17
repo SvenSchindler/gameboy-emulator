@@ -5,6 +5,7 @@ let gameboy: Gameboy | undefined;
 
 let isDebugging = false;
 let isMuted = false;
+let showRetroScreen = false;
 
 const loadRom = (i: HTMLInputElement) => () => {
   let file = assertExists(i.files?.item(0), "No file selected?");
@@ -46,6 +47,7 @@ const debugInfos = assertExists(document.getElementById("debugInfos"), "Debug in
 
 const romFileInput = assertExists(document.getElementById("romFileInput"), "Rom file input doesnt exist");
 const muteButton = assertExists(document.getElementById("muteButton"), "Mute button doesnt exists");
+const retroButton = assertExists(document.getElementById("retroButton"), "Retro button doesnt exists");
 const debugButton = assertExists(document.getElementById("debugButton"), "Debug button doesnt exists");
 
 // UI Buttons
@@ -166,6 +168,18 @@ const muteButtonClick = () => {
 };
 
 muteButton.onclick = muteButtonClick;
+
+// Retro look
+const retroButtonClick = () => {
+  if (showRetroScreen) {
+    showRetroScreen = false;
+  } else {
+    showRetroScreen = true;
+  }
+  gameboy?.setShowRetroScreen(showRetroScreen);
+};
+
+retroButton.onclick = retroButtonClick;
 
 // UI Button bindings
 

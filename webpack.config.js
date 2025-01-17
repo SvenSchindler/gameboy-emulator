@@ -15,6 +15,10 @@ module.exports = {
         use: "ts-loader",
         exclude: /node_modules/,
       },
+      {
+        test: /\.(vert|frag)$/,
+        use: "raw-loader",
+      },
     ],
   },
   resolve: {

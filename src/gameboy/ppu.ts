@@ -2,6 +2,8 @@ import { Interrupts } from "./interrupts";
 import { signedFrom8Bits } from "./utils";
 import { LcdDebugRenderer } from "./lcddebug";
 import { LcdUtils, RGBA } from "./lcdutils";
+import lcdVertexShaderCode from "./shaders/lcd.vert";
+import lcdFragmentShaderCode from "./shaders/lcd.frag";
 
 export interface PPU {
   writeFF42(value: number): void;
@@ -31,6 +33,7 @@ export interface PPU {
   readFF45(): number;
   tick(): void;
   logDebugInfo(): void;
+  setRetroModeEnabled(value: boolean): void;
 }
 
 type BackgroundWindowPixel = {
@@ -452,15 +455,51 @@ class BackgroundWindowPixelFetcher {
   private minElementsInBackgroundFifo = 8;
 }
 
-class RenderPipeline {
-  // Toy blue
-  private colors: RGBA[] = [
-    [174, 255, 255, 255],
-    [21, 205, 214, 255],
-    [16, 173, 173, 255],
-    [76, 17, 18, 255],
-  ];
+type ColorThemeConfiguration = {
+  palette: RGBA[];
+  raster: RGBA;
+};
 
+type ColorThemeName = "ToyBlue" | "ClassicGreen";
+
+class ColorTheme {
+  private selected: ColorThemeName = "ToyBlue";
+
+  private colorThemeConfigurations: { [key: string]: ColorThemeConfiguration } = {
+    ToyBlue: {
+      palette: [
+        [174, 255, 255, 255],
+        [21, 205, 214, 255],
+        [16, 173, 173, 255],
+        [76, 17, 18, 255],
+      ],
+      raster: [200, 255, 255, 255],
+    },
+    ClassicGreen: {
+      palette: [
+        [0x68, 0x7e, 0x0, 0xff],
+        [0x45, 0x66, 0x1, 0xff],
+        [0x30, 0x5c, 0x0, 0xff],
+        [0x18, 0x51, 0x1, 0xff],
+      ],
+      raster: [119, 138, 8, 255],
+    },
+  };
+
+  select(theme: ColorThemeName) {
+    this.selected = theme;
+  }
+
+  getPalette(): RGBA[] {
+    return this.colorThemeConfigurations[this.selected].palette;
+  }
+
+  getRasterColor(): RGBA {
+    return this.colorThemeConfigurations[this.selected].raster;
+  }
+}
+
+class RenderPipeline {
   private pixelsSentToLCDForCurrentLine = 0;
   private isStartOfScanline = true;
   private discardPixelsCount = 0;
@@ -475,6 +514,7 @@ class RenderPipeline {
   constructor(
     private backgroundPixelFetcher: BackgroundWindowPixelFetcher,
     private spritePixelFetcher: SpritePixelFetcher,
+    private getColorPalette: () => RGBA[],
     private getPPUInfo: () => PPUInfoForPixelFetcher,
     private sendToLCD: (color: RGBA) => void,
     private lcdDebugRenderer: LcdDebugRenderer,
@@ -627,7 +667,7 @@ class RenderPipeline {
 
       // if this is a background pixel and the background isn't enabled then we just sent out a white pixel
       if (!pixel?.overwrittenBySprite && (ppuInfo.LCDC_ff40 & 0x1) === 0) {
-        this.sendToLCD(this.colors[0]);
+        this.sendToLCD(this.getColorPalette()[0]);
       } else if (pixel?.overwrittenBySprite === true) {
         const obj0ColorId0 = 0; // lower 2 bits ignored for objects, it's transparent for object
         const obj0ColorId1 = (ppuInfo.OBP0_ff48 >> 2) & 0x03;
@@ -643,7 +683,7 @@ class RenderPipeline {
 
         const objPalette = pixel.palette === 0 ? obj0ColorPalette : obj1ColorPalette;
 
-        this.sendToLCD(this.colors[objPalette[pixel!.colorIndex]]);
+        this.sendToLCD(this.getColorPalette()[objPalette[pixel!.colorIndex]]);
       } else {
         const bgColorId0 = ppuInfo.BGP_ff47 & 0x03;
         const bgColorId1 = (ppuInfo.BGP_ff47 >> 2) & 0x03;
@@ -651,7 +691,7 @@ class RenderPipeline {
         const bgColorId3 = (ppuInfo.BGP_ff47 >> 6) & 0x03;
         const backgroundColorPalette = [bgColorId0, bgColorId1, bgColorId2, bgColorId3];
 
-        this.sendToLCD(this.colors[backgroundColorPalette[pixel!.colorIndex]]);
+        this.sendToLCD(this.getColorPalette()[backgroundColorPalette[pixel!.colorIndex]]);
       }
 
       if (ppuInfo.debugEnabled) {
@@ -753,6 +793,10 @@ export class PPUImpl implements PPU {
   // For slow machines we might want to turn this off.
   private debugRenderingEnabled = true;
 
+  private showRetroDisplay = false;
+
+  private colorTheme = new ColorTheme();
+
   constructor(
     private lcdCanvas: HTMLCanvasElement,
     private tileCanvas: HTMLCanvasElement,
@@ -774,14 +818,104 @@ export class PPUImpl implements PPU {
 
     this.debugRenderer = new LcdDebugRenderer(tileCanvas, backgroundCanvas, this.vram, getPPUInfoForRenderPipeline);
 
-    const lcdCanvasContext = lcdCanvas.getContext("2d", {
-      willReadFrequently: true,
-    }) as CanvasRenderingContext2D;
-    const lcdCanvasData = lcdCanvasContext.getImageData(0, 0, this.lcdCanvas.width, this.lcdCanvas.height);
+    // For now we just let the app fail if we can't create a
+    // webgl rendering context.
+    const gl: WebGLRenderingContext = lcdCanvas.getContext("webgl", { antialias: true })!;
+
+    const colors: RGBA = this.colorTheme.getPalette()[0];
+    gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const createShader = (shaderCode: string, type: GLenum) => {
+      const vertexShader = gl.createShader(type);
+      if (!vertexShader) {
+        throw Error(`Could not create ${type} shader`);
+      }
+      gl.shaderSource(vertexShader, shaderCode);
+      gl.compileShader(vertexShader);
+      var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+      if (!success) {
+        throw Error(`error creating ${type} shader: ${gl.getShaderInfoLog(vertexShader)}`);
+      }
+      return vertexShader;
+    };
+
+    const vertexShader = createShader(lcdVertexShaderCode, gl.VERTEX_SHADER);
+    const fragmentShader = createShader(lcdFragmentShaderCode, gl.FRAGMENT_SHADER);
+    // Same here, for now we just let it crash if we can't create our program.
+    const lcdProgram: WebGLProgram = gl.createProgram()!;
+    gl.attachShader(lcdProgram, vertexShader);
+    gl.attachShader(lcdProgram, fragmentShader);
+    gl.linkProgram(lcdProgram);
+
+    if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
+      throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
+    }
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const imageWidth = 160;
+    const imageHeight = 144;
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        0,
+        0, //
+        imageWidth,
+        0, //
+        0,
+        imageHeight, //
+        0,
+        imageHeight, //
+        imageWidth,
+        0, //
+        imageWidth,
+        imageHeight, //
+      ]),
+      gl.STATIC_DRAW,
+    );
+
+    const lcdTexture = gl.createTexture();
+    const lcdTextureData: ImageData = new ImageData(160, 144);
+    gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    const renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
+    const rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
+    const positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
+
+    // Function to render our prepared texture to our webgl canvas
+    const renderLcdTexture = (gl: WebGLRenderingContext, texture: ImageData) => {
+      gl.useProgram(lcdProgram);
+
+      // Set whether we want to render in retro mode with raster
+      gl.uniform1i(renderRasterUniformLocation, this.showRetroDisplay ? 1 : 0);
+
+      // Raster color for areas with no pixel
+      const rasterColor = this.colorTheme.getRasterColor();
+      gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
+
+      gl.enableVertexAttribArray(positionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      // We've only got one texture bound, no need to re-bind
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    };
 
     const sendPixelToLCD = (rgba: RGBA) => {
       // draw
-      LcdUtils.drawPixel(lcdCanvasData, 160, this.x, this.y, rgba);
+      LcdUtils.drawPixel(lcdTextureData, 160, this.x, this.y, rgba, this.showRetroDisplay);
+      // update texture
       // update coords
       this.x = (this.x + 1) % 160;
       // new line
@@ -794,7 +928,8 @@ export class PPUImpl implements PPU {
             // do nothing, we should actually render a white frame
             this.isFirstFrameAfterPPUEnabled = false;
           } else {
-            lcdCanvasContext.putImageData(lcdCanvasData, 0, 0);
+            // draw
+            renderLcdTexture(gl, lcdTextureData);
           }
         }
       }
@@ -807,13 +942,21 @@ export class PPUImpl implements PPU {
     this.renderPipeline = new RenderPipeline(
       backgroundWindowPixelFetcher,
       spritePixelFetcher,
+      () => this.colorTheme.getPalette(),
       getPPUInfoForRenderPipeline,
       sendPixelToLCD,
       this.debugRenderer,
     );
   }
 
-  private scxAtBeginningOfScanLine = 0x0;
+  setRetroModeEnabled(value: boolean): void {
+    this.showRetroDisplay = value;
+    if (this.showRetroDisplay) {
+      this.colorTheme.select("ClassicGreen");
+    } else {
+      this.colorTheme.select("ToyBlue");
+    }
+  }
 
   tick(): void {
     if (!this.ppuEnabled) {
@@ -826,8 +969,6 @@ export class PPUImpl implements PPU {
     if (this.dots === 0 && this.mode !== 1) {
       // mode 2
       this.mode = 2;
-
-      this.scxAtBeginningOfScanLine = this.SCX_ff43;
 
       // reset scanned objects
       this.objectsForScanline.length = 0;

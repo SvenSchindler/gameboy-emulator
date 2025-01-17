@@ -112,6 +112,10 @@ export class Gameboy {
     this.apu?.unmute();
   }
 
+  setShowRetroScreen(value: boolean) {
+    this.ppu?.setRetroModeEnabled(value);
+  }
+
   // register name, register content
   getRegisterInfo(): [string, string][] {
     return [

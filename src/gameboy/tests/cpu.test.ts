@@ -53,6 +53,7 @@ describe("cpu", () => {
     readFF45: () => 0,
     tick: () => {},
     logDebugInfo: () => {},
+    setRetroModeEnabled: () => {},
   };
 
   const fakeDma: DMA = {
