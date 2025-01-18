@@ -14,6 +14,7 @@ body {
   width: 347px;
   height: 301px;
   position: absolute;
+  image-rendering: pixelated;
   left: 94px;
   top: 98px;
   z-index: 11;

@@ -6916,7 +6916,8 @@ var serial_1 = __webpack_require__(/*! ./serial */ "./src/gameboy/serial.ts");
 var timer_1 = __webpack_require__(/*! ./timer */ "./src/gameboy/timer.ts");
 var utils_1 = __webpack_require__(/*! ./utils */ "./src/gameboy/utils.ts");
 var Gameboy = /** @class */ (function () {
-    function Gameboy() {
+    function Gameboy(enableWebGl) {
+        this.enableWebGl = enableWebGl;
         this.idToCartridgeType = {
             0x00: "ROM-ONLY",
             0x01: "MBC1",
@@ -6963,11 +6964,17 @@ var Gameboy = /** @class */ (function () {
         // Our canvases
         // main screen
         var screenCanvas = document.getElementById("screen");
+        // WebGl requires a higher resolution for the raster
+        if (this.enableWebGl) {
+            screenCanvas.width = 800;
+            screenCanvas.height = 720;
+            screenCanvas.style.imageRendering = "";
+        }
         // The full background layer for debugging.
         var backgroundCanvas = document.getElementById("background");
         // Tile canvas, just containing all background tiles for debugging.
         var tileCanvas = document.getElementById("tiles");
-        this.ppu = new ppu_1.PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts);
+        this.ppu = new ppu_1.PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts, this.enableWebGl);
         var serial = new serial_1.SerialImpl(interrupts);
         var timer = new timer_1.TimerImpl(interrupts);
         this.joypad = new joypad_1.JoyPadImpl(interrupts);
@@ -8046,12 +8053,13 @@ var RenderPipeline = /** @class */ (function () {
  * -> tileAddressingMode = (this.LCDC >> 4) & 0x1; for background/window is not updated between lines which breaks layout for some games.
  */
 var PPUImpl = /** @class */ (function () {
-    function PPUImpl(lcdCanvas, tileCanvas, backgroundCanvas, interrupts) {
+    function PPUImpl(lcdCanvas, tileCanvas, backgroundCanvas, interrupts, enableWebGl) {
         var _this = this;
         this.lcdCanvas = lcdCanvas;
         this.tileCanvas = tileCanvas;
         this.backgroundCanvas = backgroundCanvas;
         this.interrupts = interrupts;
+        this.enableWebGl = enableWebGl;
         // VRAM 8000-9FFF, 8192 bytes
         this.vram = [];
         // $FE00-FE9F, OAM, holds 160 bytes of object attributes, 40 entries, 4 bytes each
@@ -8111,80 +8119,9 @@ var PPUImpl = /** @class */ (function () {
             debugEnabled: _this.debugRenderingEnabled,
         }); };
         this.debugRenderer = new lcddebug_1.LcdDebugRenderer(tileCanvas, backgroundCanvas, this.vram, getPPUInfoForRenderPipeline);
-        // For now we just let the app fail if we can't create a
-        // webgl rendering context.
-        var gl = lcdCanvas.getContext("webgl", { antialias: true });
-        var colors = this.colorTheme.getPalette()[0];
-        gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        var createShader = function (shaderCode, type) {
-            var vertexShader = gl.createShader(type);
-            if (!vertexShader) {
-                throw Error("Could not create ".concat(type, " shader"));
-            }
-            gl.shaderSource(vertexShader, shaderCode);
-            gl.compileShader(vertexShader);
-            var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
-            if (!success) {
-                throw Error("error creating ".concat(type, " shader: ").concat(gl.getShaderInfoLog(vertexShader)));
-            }
-            return vertexShader;
-        };
-        var vertexShader = createShader(lcd_vert_1.default, gl.VERTEX_SHADER);
-        var fragmentShader = createShader(lcd_frag_1.default, gl.FRAGMENT_SHADER);
-        // Same here, for now we just let it crash if we can't create our program.
-        var lcdProgram = gl.createProgram();
-        gl.attachShader(lcdProgram, vertexShader);
-        gl.attachShader(lcdProgram, fragmentShader);
-        gl.linkProgram(lcdProgram);
-        if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
-            throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
-        }
-        var positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        var imageWidth = 160;
-        var imageHeight = 144;
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            0,
-            0, //
-            imageWidth,
-            0, //
-            0,
-            imageHeight, //
-            0,
-            imageHeight, //
-            imageWidth,
-            0, //
-            imageWidth,
-            imageHeight, //
-        ]), gl.STATIC_DRAW);
-        var lcdTexture = gl.createTexture();
-        var lcdTextureData = new ImageData(160, 144);
-        gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        var renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
-        var rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
-        var positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
         // Function to render our prepared texture to our webgl canvas
-        var renderLcdTexture = function (gl, texture) {
-            gl.useProgram(lcdProgram);
-            // Set whether we want to render in retro mode with raster
-            gl.uniform1i(renderRasterUniformLocation, _this.showRetroDisplay ? 1 : 0);
-            // Raster color for areas with no pixel
-            var rasterColor = _this.colorTheme.getRasterColor();
-            gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
-            gl.enableVertexAttribArray(positionLocation);
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-            // We've only got one texture bound, no need to re-bind
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-        };
+        var lcdTextureData = new ImageData(160, 144);
+        var drawImage = enableWebGl ? this.getDrawImageForWebGl(lcdCanvas) : this.getDrawImageFor2dContext(lcdCanvas);
         var sendPixelToLCD = function (rgba) {
             // draw
             lcdutils_1.LcdUtils.drawPixel(lcdTextureData, 160, _this.x, _this.y, rgba, _this.showRetroDisplay);
@@ -8203,7 +8140,7 @@ var PPUImpl = /** @class */ (function () {
                     }
                     else {
                         // draw
-                        renderLcdTexture(gl, lcdTextureData);
+                        drawImage(lcdTextureData);
                     }
                 }
             }
@@ -8432,6 +8369,87 @@ var PPUImpl = /** @class */ (function () {
     };
     PPUImpl.prototype.logDebugInfo = function () {
         this.debugRenderingEnabled = true;
+    };
+    PPUImpl.prototype.getDrawImageForWebGl = function (lcdCanvas) {
+        var _this = this;
+        var gl = lcdCanvas.getContext("webgl", { antialias: true });
+        var colors = this.colorTheme.getPalette()[0];
+        gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        var createShader = function (shaderCode, type) {
+            var vertexShader = gl.createShader(type);
+            if (!vertexShader) {
+                throw Error("Could not create ".concat(type, " shader"));
+            }
+            gl.shaderSource(vertexShader, shaderCode);
+            gl.compileShader(vertexShader);
+            var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            if (!success) {
+                throw Error("error creating ".concat(type, " shader: ").concat(gl.getShaderInfoLog(vertexShader)));
+            }
+            return vertexShader;
+        };
+        var vertexShader = createShader(lcd_vert_1.default, gl.VERTEX_SHADER);
+        var fragmentShader = createShader(lcd_frag_1.default, gl.FRAGMENT_SHADER);
+        // Same here, for now we just let it crash if we can't create our program.
+        var lcdProgram = gl.createProgram();
+        gl.attachShader(lcdProgram, vertexShader);
+        gl.attachShader(lcdProgram, fragmentShader);
+        gl.linkProgram(lcdProgram);
+        if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
+            throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
+        }
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        var imageWidth = 160;
+        var imageHeight = 144;
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            0,
+            0, //
+            imageWidth,
+            0, //
+            0,
+            imageHeight, //
+            0,
+            imageHeight, //
+            imageWidth,
+            0, //
+            imageWidth,
+            imageHeight, //
+        ]), gl.STATIC_DRAW);
+        var lcdTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        var renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
+        var rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
+        var positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
+        // Function to render our prepared texture to our webgl canvas
+        return function (texture) {
+            gl.useProgram(lcdProgram);
+            // Set whether we want to render in retro mode with raster
+            gl.uniform1i(renderRasterUniformLocation, _this.showRetroDisplay ? 1 : 0);
+            // Raster color for areas with no pixel
+            var rasterColor = _this.colorTheme.getRasterColor();
+            gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            // We've only got one texture bound, no need to re-bind
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        };
+    };
+    PPUImpl.prototype.getDrawImageFor2dContext = function (lcdCanvas) {
+        var lcdCanvasContext = lcdCanvas.getContext("2d", {
+            willReadFrequently: true,
+        });
+        return function (texture) {
+            lcdCanvasContext.putImageData(texture, 0, 0);
+        };
     };
     return PPUImpl;
 }());
@@ -8777,13 +8795,16 @@ var gameboy;
 var isDebugging = false;
 var isMuted = false;
 var showRetroScreen = false;
+// Read some flags provided via url parameters
+var params = new URLSearchParams(window.location.search);
+var enableWebGl = params.get("enableWebGl") === "true";
 var loadRom = function (i) { return function () {
     var _a;
     var file = (0, utils_1.assertExists)((_a = i.files) === null || _a === void 0 ? void 0 : _a.item(0), "No file selected?");
     if (gameboy) {
         gameboy.kill();
     }
-    gameboy = new gameboy_1.Gameboy();
+    gameboy = new gameboy_1.Gameboy(enableWebGl);
     isDebugging = false;
     updateDebugButton();
     file.arrayBuffer().then(function (romData) {
