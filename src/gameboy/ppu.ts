@@ -802,6 +802,7 @@ export class PPUImpl implements PPU {
     private tileCanvas: HTMLCanvasElement,
     private backgroundCanvas: HTMLCanvasElement,
     private interrupts: Interrupts,
+    private enableWebGl: boolean,
   ) {
     const getPPUInfoForRenderPipeline = (): PPUInfoForPixelFetcher => ({
       LCDC_ff40: this.LCDC_ff40,
@@ -818,99 +819,9 @@ export class PPUImpl implements PPU {
 
     this.debugRenderer = new LcdDebugRenderer(tileCanvas, backgroundCanvas, this.vram, getPPUInfoForRenderPipeline);
 
-    // For now we just let the app fail if we can't create a
-    // webgl rendering context.
-    const gl: WebGLRenderingContext = lcdCanvas.getContext("webgl", { antialias: true })!;
-
-    const colors: RGBA = this.colorTheme.getPalette()[0];
-    gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    const createShader = (shaderCode: string, type: GLenum) => {
-      const vertexShader = gl.createShader(type);
-      if (!vertexShader) {
-        throw Error(`Could not create ${type} shader`);
-      }
-      gl.shaderSource(vertexShader, shaderCode);
-      gl.compileShader(vertexShader);
-      var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
-      if (!success) {
-        throw Error(`error creating ${type} shader: ${gl.getShaderInfoLog(vertexShader)}`);
-      }
-      return vertexShader;
-    };
-
-    const vertexShader = createShader(lcdVertexShaderCode, gl.VERTEX_SHADER);
-    const fragmentShader = createShader(lcdFragmentShaderCode, gl.FRAGMENT_SHADER);
-    // Same here, for now we just let it crash if we can't create our program.
-    const lcdProgram: WebGLProgram = gl.createProgram()!;
-    gl.attachShader(lcdProgram, vertexShader);
-    gl.attachShader(lcdProgram, fragmentShader);
-    gl.linkProgram(lcdProgram);
-
-    if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
-      throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
-    }
-
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    const imageWidth = 160;
-    const imageHeight = 144;
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([
-        0,
-        0, //
-        imageWidth,
-        0, //
-        0,
-        imageHeight, //
-        0,
-        imageHeight, //
-        imageWidth,
-        0, //
-        imageWidth,
-        imageHeight, //
-      ]),
-      gl.STATIC_DRAW,
-    );
-
-    const lcdTexture = gl.createTexture();
-    const lcdTextureData: ImageData = new ImageData(160, 144);
-    gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lcdTextureData);
-
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-    const renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
-    const rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
-    const positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
-
     // Function to render our prepared texture to our webgl canvas
-    const renderLcdTexture = (gl: WebGLRenderingContext, texture: ImageData) => {
-      gl.useProgram(lcdProgram);
-
-      // Set whether we want to render in retro mode with raster
-      gl.uniform1i(renderRasterUniformLocation, this.showRetroDisplay ? 1 : 0);
-
-      // Raster color for areas with no pixel
-      const rasterColor = this.colorTheme.getRasterColor();
-      gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
-
-      gl.enableVertexAttribArray(positionLocation);
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-      // We've only got one texture bound, no need to re-bind
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-    };
+    const lcdTextureData: ImageData = new ImageData(160, 144);
+    const drawImage = enableWebGl ? this.getDrawImageForWebGl(lcdCanvas) : this.getDrawImageFor2dContext(lcdCanvas);
 
     const sendPixelToLCD = (rgba: RGBA) => {
       // draw
@@ -929,7 +840,7 @@ export class PPUImpl implements PPU {
             this.isFirstFrameAfterPPUEnabled = false;
           } else {
             // draw
-            renderLcdTexture(gl, lcdTextureData);
+            drawImage(lcdTextureData);
           }
         }
       }
@@ -1180,5 +1091,105 @@ export class PPUImpl implements PPU {
   }
   logDebugInfo(): void {
     this.debugRenderingEnabled = true;
+  }
+
+  private getDrawImageForWebGl(lcdCanvas: HTMLCanvasElement) {
+    const gl: WebGLRenderingContext = lcdCanvas.getContext("webgl", { antialias: true })!;
+
+    const colors: RGBA = this.colorTheme.getPalette()[0];
+    gl.clearColor(colors[0] / 255, colors[1] / 255, colors[2] / 255, colors[3] / 255);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const createShader = (shaderCode: string, type: GLenum) => {
+      const vertexShader = gl.createShader(type);
+      if (!vertexShader) {
+        throw Error(`Could not create ${type} shader`);
+      }
+      gl.shaderSource(vertexShader, shaderCode);
+      gl.compileShader(vertexShader);
+      var success = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+      if (!success) {
+        throw Error(`error creating ${type} shader: ${gl.getShaderInfoLog(vertexShader)}`);
+      }
+      return vertexShader;
+    };
+
+    const vertexShader = createShader(lcdVertexShaderCode, gl.VERTEX_SHADER);
+    const fragmentShader = createShader(lcdFragmentShaderCode, gl.FRAGMENT_SHADER);
+    // Same here, for now we just let it crash if we can't create our program.
+    const lcdProgram: WebGLProgram = gl.createProgram()!;
+    gl.attachShader(lcdProgram, vertexShader);
+    gl.attachShader(lcdProgram, fragmentShader);
+    gl.linkProgram(lcdProgram);
+
+    if (!gl.getProgramParameter(lcdProgram, gl.LINK_STATUS)) {
+      throw Error("failed to compile shader program for lcd: " + gl.getProgramInfoLog(lcdProgram));
+    }
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const imageWidth = 160;
+    const imageHeight = 144;
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        0,
+        0, //
+        imageWidth,
+        0, //
+        0,
+        imageHeight, //
+        0,
+        imageHeight, //
+        imageWidth,
+        0, //
+        imageWidth,
+        imageHeight, //
+      ]),
+      gl.STATIC_DRAW,
+    );
+
+    const lcdTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, lcdTexture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    const renderRasterUniformLocation = gl.getUniformLocation(lcdProgram, "u_render_raster");
+    const rasterColorUniformLocation = gl.getUniformLocation(lcdProgram, "u_raster_color");
+    const positionLocation = gl.getAttribLocation(lcdProgram, "a_position");
+
+    // Function to render our prepared texture to our webgl canvas
+    return (texture: ImageData) => {
+      gl.useProgram(lcdProgram);
+
+      // Set whether we want to render in retro mode with raster
+      gl.uniform1i(renderRasterUniformLocation, this.showRetroDisplay ? 1 : 0);
+
+      // Raster color for areas with no pixel
+      const rasterColor = this.colorTheme.getRasterColor();
+      gl.uniform4f(rasterColorUniformLocation, rasterColor[0], rasterColor[1], rasterColor[2], rasterColor[3]);
+
+      gl.enableVertexAttribArray(positionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      // We've only got one texture bound, no need to re-bind
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    };
+  }
+
+  private getDrawImageFor2dContext(lcdCanvas: HTMLCanvasElement) {
+    const lcdCanvasContext = lcdCanvas.getContext("2d", {
+      willReadFrequently: true,
+    }) as CanvasRenderingContext2D;
+    return (texture: ImageData) => {
+      lcdCanvasContext.putImageData(texture, 0, 0);
+    };
   }
 }

@@ -7,6 +7,10 @@ let isDebugging = false;
 let isMuted = false;
 let showRetroScreen = false;
 
+// Read some flags provided via url parameters
+const params = new URLSearchParams(window.location.search);
+const enableWebGl = params.get("enableWebGl") === "true";
+
 const loadRom = (i: HTMLInputElement) => () => {
   let file = assertExists(i.files?.item(0), "No file selected?");
 
@@ -14,7 +18,7 @@ const loadRom = (i: HTMLInputElement) => () => {
     gameboy.kill();
   }
 
-  gameboy = new Gameboy();
+  gameboy = new Gameboy(enableWebGl);
   isDebugging = false;
   updateDebugButton();
 

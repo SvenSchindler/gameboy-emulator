@@ -14,6 +14,8 @@ Speaking about debugging, I was mainly interested in how the Game Boy does thing
 
 Just head to https://svenschindler.github.io/gameboy-emulator/ to give it a try.
 
+To run the emulator with webgl rendering enabled, go to https://svenschindler.github.io/gameboy-emulator/index.html?enableWebGl=true
+
 ## How to build and run
 
 To build:

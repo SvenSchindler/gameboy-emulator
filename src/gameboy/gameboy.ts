@@ -21,6 +21,8 @@ export class Gameboy {
   private apu: APU | undefined;
   private cartridgeType: CartridgeType | undefined;
 
+  constructor(private enableWebGl: boolean) {}
+
   load(rom: Uint8Array) {
     const cartridgeInfo = this.readRomInfo(rom);
     const interrupts = new InterruptsImpl();
@@ -51,13 +53,20 @@ export class Gameboy {
     // main screen
     const screenCanvas = document.getElementById("screen") as HTMLCanvasElement;
 
+    // WebGl requires a higher resolution for the raster
+    if (this.enableWebGl) {
+      screenCanvas.width = 800;
+      screenCanvas.height = 720;
+      screenCanvas.style.imageRendering = "";
+    }
+
     // The full background layer for debugging.
     const backgroundCanvas = document.getElementById("background") as HTMLCanvasElement;
 
     // Tile canvas, just containing all background tiles for debugging.
     const tileCanvas = document.getElementById("tiles") as HTMLCanvasElement;
 
-    this.ppu = new PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts);
+    this.ppu = new PPUImpl(screenCanvas, tileCanvas, backgroundCanvas, interrupts, this.enableWebGl);
     const serial = new SerialImpl(interrupts);
     const timer = new TimerImpl(interrupts);
     this.joypad = new JoyPadImpl(interrupts);
