@@ -7454,7 +7454,7 @@ var LcdUtils = /** @class */ (function () {
     }
     LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color, useDecay) {
         if (useDecay === void 0) { useDecay = false; }
-        var decayFactor = useDecay ? 0.5 : 0;
+        var decayFactor = useDecay ? 0.48 : 0;
         var index = (x + y * canvasWidth) * 4;
         canvasData.data[index + 0] = (1 - decayFactor) * color[0] + decayFactor * canvasData.data[index + 0];
         canvasData.data[index + 1] = (1 - decayFactor) * color[1] + decayFactor * canvasData.data[index + 1];
