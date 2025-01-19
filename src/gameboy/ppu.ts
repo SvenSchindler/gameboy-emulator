@@ -825,7 +825,12 @@ export class PPUImpl implements PPU {
 
     const sendPixelToLCD = (rgba: RGBA) => {
       // draw
-      LcdUtils.drawPixel(lcdTextureData, 160, this.x, this.y, rgba, this.showRetroDisplay);
+      if (this.showRetroDisplay) {
+        LcdUtils.drawPixelWithDecay(lcdTextureData, 160, this.x, this.y, rgba);
+      } else {
+        LcdUtils.drawPixel(lcdTextureData, 160, this.x, this.y, rgba);
+      }
+
       // update texture
       // update coords
       this.x = (this.x + 1) % 160;
