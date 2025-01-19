@@ -7459,10 +7459,16 @@ exports.LcdUtils = void 0;
 var LcdUtils = /** @class */ (function () {
     function LcdUtils() {
     }
-    LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color, useDecay) {
-        if (useDecay === void 0) { useDecay = false; }
-        var decayFactor = useDecay ? 0.48 : 0;
+    LcdUtils.drawPixel = function (canvasData, canvasWidth, x, y, color) {
         var index = (x + y * canvasWidth) * 4;
+        canvasData.data[index + 0] = color[0];
+        canvasData.data[index + 1] = color[1];
+        canvasData.data[index + 2] = color[2];
+        canvasData.data[index + 3] = color[3];
+    };
+    LcdUtils.drawPixelWithDecay = function (canvasData, canvasWidth, x, y, color) {
+        var index = (x + y * canvasWidth) * 4;
+        var decayFactor = 0.49;
         canvasData.data[index + 0] = (1 - decayFactor) * color[0] + decayFactor * canvasData.data[index + 0];
         canvasData.data[index + 1] = (1 - decayFactor) * color[1] + decayFactor * canvasData.data[index + 1];
         canvasData.data[index + 2] = (1 - decayFactor) * color[2] + decayFactor * canvasData.data[index + 2];
@@ -8124,7 +8130,12 @@ var PPUImpl = /** @class */ (function () {
         var drawImage = enableWebGl ? this.getDrawImageForWebGl(lcdCanvas) : this.getDrawImageFor2dContext(lcdCanvas);
         var sendPixelToLCD = function (rgba) {
             // draw
-            lcdutils_1.LcdUtils.drawPixel(lcdTextureData, 160, _this.x, _this.y, rgba, _this.showRetroDisplay);
+            if (_this.showRetroDisplay) {
+                lcdutils_1.LcdUtils.drawPixelWithDecay(lcdTextureData, 160, _this.x, _this.y, rgba);
+            }
+            else {
+                lcdutils_1.LcdUtils.drawPixel(lcdTextureData, 160, _this.x, _this.y, rgba);
+            }
             // update texture
             // update coords
             _this.x = (_this.x + 1) % 160;
@@ -9101,4 +9112,4 @@ document.addEventListener("keyup", function (e) {
 
 /******/ })()
 ;
-//# sourceMappingURL=main.09a2840c90cf43bd0361.js.map
+//# sourceMappingURL=main.4e84b9717376514f2502.js.map
