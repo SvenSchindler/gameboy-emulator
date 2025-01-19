@@ -65,6 +65,11 @@ const downButton = assertExists(document.getElementById("DownButton"), "Down but
 const leftButton = assertExists(document.getElementById("LeftButton"), "Left button doesnt exists");
 const rightButton = assertExists(document.getElementById("RightButton"), "Right button doesnt exists");
 
+const gameboyImage = assertExists(
+  document.getElementById("gameboy"),
+  "Gameboy image doesnt exists",
+) as HTMLImageElement;
+
 if (romFileInput) {
   romFileInput.onchange = loadRom(romFileInput as HTMLInputElement);
 }
@@ -177,8 +182,10 @@ muteButton.onclick = muteButtonClick;
 const retroButtonClick = () => {
   if (showRetroScreen) {
     showRetroScreen = false;
+    gameboyImage.src = "img/gb.png";
   } else {
     showRetroScreen = true;
+    gameboyImage.src = "img/gb-retro.png";
   }
   gameboy?.setShowRetroScreen(showRetroScreen);
 };
