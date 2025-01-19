@@ -8852,6 +8852,7 @@ var upButton = (0, utils_1.assertExists)(document.getElementById("UpButton"), "U
 var downButton = (0, utils_1.assertExists)(document.getElementById("DownButton"), "Down button doesnt exists");
 var leftButton = (0, utils_1.assertExists)(document.getElementById("LeftButton"), "Left button doesnt exists");
 var rightButton = (0, utils_1.assertExists)(document.getElementById("RightButton"), "Right button doesnt exists");
+var gameboyImage = (0, utils_1.assertExists)(document.getElementById("gameboy"), "Gameboy image doesnt exists");
 if (romFileInput) {
     romFileInput.onchange = loadRom(romFileInput);
 }
@@ -8952,9 +8953,11 @@ muteButton.onclick = muteButtonClick;
 var retroButtonClick = function () {
     if (showRetroScreen) {
         showRetroScreen = false;
+        gameboyImage.src = "img/gb.png";
     }
     else {
         showRetroScreen = true;
+        gameboyImage.src = "img/gb-retro.png";
     }
     gameboy === null || gameboy === void 0 ? void 0 : gameboy.setShowRetroScreen(showRetroScreen);
 };
@@ -9112,4 +9115,4 @@ document.addEventListener("keyup", function (e) {
 
 /******/ })()
 ;
-//# sourceMappingURL=main.4e84b9717376514f2502.js.map
+//# sourceMappingURL=main.ac8dde76c85000f255d2.js.map
