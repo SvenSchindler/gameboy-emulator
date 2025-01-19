@@ -1,10 +1,11 @@
 const path = require("path");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   entry: "./src/index.ts",
   output: {
-    filename: "bundle.js",
+    filename: "[name].[contenthash].js",
     path: path.resolve(__dirname, "dist"),
   },
   mode: "development",
@@ -34,7 +35,13 @@ module.exports = {
   },
   plugins: [
     new CopyWebpackPlugin({
-      patterns: [{ from: "index.html" }, { from: "styles.css" }, { from: "img/*", to: "img/[name][ext]" }],
+      patterns: [{ from: "styles.css" }, { from: "img/*", to: "img/[name][ext]" }],
+    }),
+    new HtmlWebpackPlugin({
+      title: "Custom template",
+      template: "index.html",
+      hash: true,
+      inject: "body",
     }),
   ],
 };
