@@ -7468,11 +7468,23 @@ var LcdUtils = /** @class */ (function () {
     };
     LcdUtils.drawPixelWithDecay = function (canvasData, canvasWidth, x, y, color) {
         var index = (x + y * canvasWidth) * 4;
-        var decayFactor = 0.49;
+        var decayFactor = 0.65;
         canvasData.data[index + 0] = (1 - decayFactor) * color[0] + decayFactor * canvasData.data[index + 0];
         canvasData.data[index + 1] = (1 - decayFactor) * color[1] + decayFactor * canvasData.data[index + 1];
         canvasData.data[index + 2] = (1 - decayFactor) * color[2] + decayFactor * canvasData.data[index + 2];
-        canvasData.data[index + 3] = (1 - decayFactor) * color[3] + decayFactor * canvasData.data[index + 3];
+        // Just to avoid some rounding issues
+        var distance = 3;
+        if (Math.abs(canvasData.data[index + 0] - color[0]) < distance) {
+            canvasData.data[index + 0] = color[0];
+        }
+        if (Math.abs(canvasData.data[index + 1] - color[1]) < distance) {
+            canvasData.data[index + 1] = color[1];
+        }
+        if (Math.abs(canvasData.data[index + 2] - color[2]) < distance) {
+            canvasData.data[index + 2] = color[2];
+        }
+        // We're not dealing with any alpha values
+        canvasData.data[index + 3] = 255;
     };
     return LcdUtils;
 }());
@@ -9115,4 +9127,4 @@ document.addEventListener("keyup", function (e) {
 
 /******/ })()
 ;
-//# sourceMappingURL=main.ac8dde76c85000f255d2.js.map
+//# sourceMappingURL=main.150a6f781ca66ecc9261.js.map
